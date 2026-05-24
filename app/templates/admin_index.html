@@ -1,0 +1,126 @@
+{% extends "admin_base.html" %}
+
+{% block body %}
+<div class="layui-container" style="padding: 20px;">
+    <div class="layui-row layui-col-space20">
+        <div class="layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header"><i class="fas fa-users"></i> 用户总数</div>
+                <div class="layui-card-body" style="font-size: 32px; font-weight: 600; color: #1e9fff;">
+                    <span id="user-count">--</span>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header"><i class="fas fa-robot"></i> 数字员工</div>
+                <div class="layui-card-body" style="font-size: 32px; font-weight: 600; color: #ff5722;">
+                    <span>0</span>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header"><i class="fas fa-brain"></i> 模型调用</div>
+                <div class="layui-card-body" style="font-size: 32px; font-weight: 600; color: #5fb878;">
+                    <span>0</span>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header"><i class="fas fa-binoculars"></i> 采集任务</div>
+                <div class="layui-card-body" style="font-size: 32px; font-weight: 600; color: #ffb800;">
+                    <span>0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="layui-row layui-col-space20" style="margin-top: 20px;">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header"><i class="fas fa-info-circle"></i> 系统信息</div>
+                <div class="layui-card-body">
+                    <table class="layui-table">
+                        <tbody>
+                            <tr>
+                                <td style="width: 150px;">系统名称</td>
+                                <td>cnAgentOS - AI智能瞭望与智能问数系统</td>
+                            </tr>
+                            <tr>
+                                <td>系统版本</td>
+                                <td>v1.0.0</td>
+                            </tr>
+                            <tr>
+                                <td>运行环境</td>
+                                <td>Python 3.11 + Tornado 6.5.5</td>
+                            </tr>
+                            <tr>
+                                <td>数据库</td>
+                                <td>SQLite3</td>
+                            </tr>
+                            <tr>
+                                <td>开发状态</td>
+                                <td><span class="layui-badge layui-bg-blue">开发中</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="layui-row layui-col-space20" style="margin-top: 20px;">
+        <div class="layui-col-md6">
+            <div class="layui-card">
+                <div class="layui-card-header"><i class="fas fa-bolt"></i> 快捷操作</div>
+                <div class="layui-card-body">
+                    <div class="layui-row layui-col-space10">
+                        <div class="layui-col-md4">
+                            <a href="/admin/user" class="layui-btn layui-btn-fluid">
+                                <i class="fas fa-user-plus"></i> 新增用户
+                            </a>
+                        </div>
+                        <div class="layui-col-md4">
+                            <a href="javascript:;" class="layui-btn layui-btn-fluid layui-btn-normal">
+                                <i class="fas fa-plus-circle"></i> 创建任务
+                            </a>
+                        </div>
+                        <div class="layui-col-md4">
+                            <a href="javascript:;" class="layui-btn layui-btn-fluid layui-btn-warm">
+                                <i class="fas fa-chart-line"></i> 查看报表
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-md6">
+            <div class="layui-card">
+                <div class="layui-card-header"><i class="fas fa-history"></i> 最近操作</div>
+                <div class="layui-card-body">
+                    <div style="color: #999; text-align: center; padding: 20px;">
+                        <i class="fas fa-inbox" style="font-size: 40px; margin-bottom: 10px;"></i>
+                        <div>暂无操作记录</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% end %}
+
+{% block scripts %}
+<script>
+layui.use(['jquery'], function(){
+    var $ = layui.jquery;
+    
+    $.get('/admin/api/stats', function(res){
+        if(res.code === 0){
+            $('#user-count').text(res.data.user_count || 0);
+        }
+    });
+});
+</script>
+{% end %}

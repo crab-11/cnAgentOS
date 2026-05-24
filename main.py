@@ -12,6 +12,19 @@ from tornado.httpserver import HTTPServer
 from app.controllers.auth import LoginHandler, LogoutHandler
 from app.controllers.home import IndexHandler
 
+# 引入后台管理 controller 层
+from app.controllers.admin_auth import AdminLoginHandler, AdminLogoutHandler
+from app.controllers.admin_home import AdminIndexHandler
+from app.controllers.admin_user import (
+    AdminUserHandler,
+    AdminUserListHandler,
+    AdminUserAddHandler,
+    AdminUserUpdateHandler,
+    AdminUserDeleteHandler,
+    AdminUserBatchDeleteHandler,
+    AdminStatsHandler
+)
+
 # 引入数据库初始化方法
 from app.models.db import init_db
 
@@ -39,9 +52,22 @@ def make_app():
     )
 
     return tornado.web.Application([
+        # 用户侧路由
         (r"/", IndexHandler),
         (r"/auth/login", LoginHandler),
         (r"/auth/logout", LogoutHandler),
+
+        # 后台管理路由
+        (r"/admin/", AdminIndexHandler),
+        (r"/admin/auth/login", AdminLoginHandler),
+        (r"/admin/auth/logout", AdminLogoutHandler),
+        (r"/admin/user", AdminUserHandler),
+        (r"/admin/api/user/list", AdminUserListHandler),
+        (r"/admin/api/user/add", AdminUserAddHandler),
+        (r"/admin/api/user/update", AdminUserUpdateHandler),
+        (r"/admin/api/user/delete", AdminUserDeleteHandler),
+        (r"/admin/api/user/batch-delete", AdminUserBatchDeleteHandler),
+        (r"/admin/api/stats", AdminStatsHandler),
     ], **settings)
 
 

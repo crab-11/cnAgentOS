@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ static_url('libs/layui-v2.13.6/layui/css/layui.css') }}">
+    <link rel="stylesheet" href="{{ static_url('libs/fontawesome-free-5.15.4-web/css/all.min.css') }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .admin-container {
+            display: flex;
+            height: 100%;
+        }
+
+        .admin-sidebar {
+            width: 200px;
+            background-color: #2f4050;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background-color: #1a222c;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-header i {
+            color: #00d4ff;
+            margin-right: 8px;
+        }
+
+        .sidebar-menu {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu ul {
+            list-style: none;
+            padding: 10px 0;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 2px;
+        }
+
+        .sidebar-menu li a {
+            display: block;
+            padding: 12px 20px;
+            color: #a7b1c2;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar-menu li a:hover {
+            background-color: #1ab394;
+            color: #fff;
+        }
+
+        .sidebar-menu li.active > a {
+            background-color: #1ab394;
+            color: #fff;
+        }
+
+        .sidebar-menu li a i {
+            margin-right: 10px;
+            width: 16px;
+            text-align: center;
+        }
+
+        .sidebar-menu .submenu {
+            background-color: #1f2d3d;
+            display: none;
+        }
+
+        .sidebar-menu .submenu a {
+            padding-left: 45px;
+            font-size: 13px;
+        }
+
+        .sidebar-menu li.active .submenu {
+            display: block;
+        }
+
+        .sidebar-menu .submenu li.active a {
+            background-color: transparent;
+            color: #1ab394;
+        }
+
+        .sidebar-menu .submenu li.active a:hover {
+            background-color: #2f4050;
+        }
+
+        .admin-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .admin-header {
+            height: 60px;
+            background-color: #fff;
+            border-bottom: 1px solid #e6e6e6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            flex-shrink: 0;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .header-user {
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .header-user img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .header-user .username {
+            margin-right: 8px;
+            font-weight: 500;
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 100;
+            min-width: 150px;
+        }
+
+        .user-dropdown.show {
+            display: block;
+        }
+
+        .user-dropdown a {
+            display: block;
+            padding: 10px 15px;
+            color: #666;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .user-dropdown a:hover {
+            background-color: #f5f5f5;
+        }
+
+        .header-bell {
+            font-size: 18px;
+            margin-right: 20px;
+            color: #666;
+            cursor: pointer;
+        }
+
+        .admin-content {
+            flex: 1;
+            padding: 15px;
+            background-color: #f3f3f4;
+            overflow-y: auto;
+        }
+
+        .page-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #676a6c;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e6e6e6;
+        }
+
+        .admin-footer {
+            height: 44px;
+            background-color: #fff;
+            border-top: 1px solid #e6e6e6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            font-size: 13px;
+            color: #666;
+            flex-shrink: 0;
+        }
+
+        .layui-card {
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+        }
+
+        .layui-card-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .layui-card-body {
+            padding: 15px 20px;
+        }
+
+        .toolbar {
+            background-color: #fff;
+            padding: 15px 20px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .layui-table-view {
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .layui-table {
+            min-width: 100%;
+        }
+
+        .layui-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            padding: 12px 8px;
+            text-align: left;
+        }
+
+        .layui-table td {
+            padding: 12px 8px;
+        }
+
+        .layui-btn {
+            margin-right: 8px;
+        }
+
+        .layui-input {
+            height: 38px;
+            padding: 0 10px;
+        }
+
+        @media (max-width: 768px) {
+            .admin-sidebar {
+                width: 60px;
+            }
+            .sidebar-header span {
+                display: none;
+            }
+            .sidebar-menu li a span {
+                display: none;
+            }
+            .sidebar-menu li a {
+                justify-content: center;
+            }
+            .sidebar-menu .submenu a {
+                padding-left: 20px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-chart-line"></i>
+                <span>cnAgentOS</span>
+            </div>
+            <div class="sidebar-menu">
+                <ul>
+                    <li class="active">
+                        <a href="javascript:;" data-url="/admin/">
+                            <i class="fas fa-home"></i>
+                            <span>首页</span>
+                        </a>
+                        <ul class="submenu">
+                            <li class="active"><a href="javascript:;" data-url="/admin/">控制台</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:;">
+                            <i class="fas fa-users"></i>
+                            <span>用户管理</span>
+                        </a>
+                        <ul class="submenu">
+                            <li><a href="javascript:;" data-url="/admin/user">用户列表</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:;">
+                            <i class="fas fa-user-shield"></i>
+                            <span>权限管理</span>
+                        </a>
+                        <ul class="submenu">
+                            <li><a href="javascript:;">角色管理</a></li>
+                            <li><a href="javascript:;">权限配置</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:;">
+                            <i class="fas fa-robot"></i>
+                            <span>数字员工</span>
+                        </a>
+                        <ul class="submenu">
+                            <li><a href="javascript:;">数据员工</a></li>
+                            <li><a href="javascript:;">天气员工</a></li>
+                            <li><a href="javascript:;">新闻员工</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:;">
+                            <i class="fas fa-brain"></i>
+                            <span>模型引擎</span>
+                        </a>
+                        <ul class="submenu">
+                            <li><a href="javascript:;">模型配置</a></li>
+                            <li><a href="javascript:;">Token统计</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:;">
+                            <i class="fas fa-binoculars"></i>
+                            <span>瞭望管理</span>
+                        </a>
+                        <ul class="submenu">
+                            <li><a href="javascript:;">瞭望源管理</a></li>
+                            <li><a href="javascript:;">采集任务</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:;">
+                            <i class="fas fa-database"></i>
+                            <span>数据仓库</span>
+                        </a>
+                        <ul class="submenu">
+                            <li><a href="javascript:;">数据存储</a></li>
+                            <li><a href="javascript:;">向量库管理</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:;">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>数智大屏</span>
+                        </a>
+                        <ul class="submenu">
+                            <li><a href="javascript:;">报表管理</a></li>
+                            <li><a href="javascript:;">数字孪生</a></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:;">
+                            <i class="fas fa-cog"></i>
+                            <span>系统设置</span>
+                        </a>
+                        <ul class="submenu">
+                            <li><a href="javascript:;">系统参数</a></li>
+                            <li><a href="javascript:;">系统统计</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="admin-main">
+            <div class="admin-header">
+                <div class="header-left">
+                    <span class="page-title">{{ title }}</span>
+                </div>
+                <div class="header-right">
+                    <i class="fas fa-bell header-bell"></i>
+                    <div class="header-user" id="user-menu">
+                        <img src="{{ static_url('images/admin-avatar.png') }}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='">
+                        <span class="username">{{ username }}</span>
+                        <i class="fas fa-chevron-down"></i>
+                        <div class="user-dropdown" id="user-dropdown">
+                            <a href="javascript:;">个人中心</a>
+                            <a href="javascript:;">修改密码</a>
+                            <a href="/admin/auth/logout">退出登录</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-content">
+                {% block body %}{% end %}
+            </div>
+
+            <div class="admin-footer">
+                <span>cnAgentOS - AI智能瞭望与智能问数系统 © 2026</span>
+                <span id="current-time"></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ static_url('libs/layui-v2.13.6/layui/layui.js') }}"></script>
+    <script>
+        layui.use(['form', 'layer', 'jquery'], function(){
+            var form = layui.form;
+            var layer = layui.layer;
+            var $ = layui.jquery;
+
+            $('.sidebar-menu li a').on('click', function(e){
+                var $this = $(this);
+                var $li = $this.parent();
+                
+                if($li.hasClass('active')){
+                    $li.find('.submenu').slideToggle();
+                } else {
+                    $('.sidebar-menu li').removeClass('active');
+                    $li.addClass('active');
+                    $('.sidebar-menu .submenu').slideUp();
+                    $li.find('.submenu').slideDown();
+                }
+                
+                var url = $this.data('url');
+                if(url){
+                    window.location.href = url;
+                }
+            });
+
+            $('#user-menu').on('click', function(e){
+                e.stopPropagation();
+                $('#user-dropdown').toggleClass('show');
+            });
+
+            $(document).on('click', function(e){
+                if(!$(e.target).closest('#user-menu').length){
+                    $('#user-dropdown').removeClass('show');
+                }
+            });
+
+            function updateTime(){
+                var now = new Date();
+                $('#current-time').text(now.toLocaleString('zh-CN'));
+            }
+            updateTime();
+            setInterval(updateTime, 1000);
+        });
+    </script>
+    {% block scripts %}{% end %}
+</body>
+</html>

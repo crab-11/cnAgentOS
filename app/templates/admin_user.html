@@ -1,0 +1,219 @@
+{% extends "admin_base.html" %}
+
+{% block body %}
+<div class="toolbar">
+    <div class="layui-form-item">
+        <div class="layui-inline">
+            <input type="text" id="search-username" placeholder="搜索用户名" class="layui-input" style="width: 250px;">
+        </div>
+        <div class="layui-inline">
+            <button class="layui-btn" id="btn-search">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+            <button class="layui-btn layui-btn-normal" id="btn-add">
+                <i class="fas fa-plus"></i> 新增用户
+            </button>
+            <button class="layui-btn layui-btn-danger" id="btn-batch-delete">
+                <i class="fas fa-trash-alt"></i> 批量删除
+            </button>
+        </div>
+    </div>
+</div>
+
+<table id="user-table" lay-filter="user-table"></table>
+
+<script type="text/html" id="toolbar-user">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">
+        <i class="fas fa-edit"></i> 编辑
+    </a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete">
+        <i class="fas fa-trash"></i> 删除
+    </a>
+</script>
+
+<div id="user-form-dialog" style="display: none; padding: 20px;">
+    <form class="layui-form" id="user-form" lay-filter="user-form">
+        {% module xsrf_form_html() %}
+        <input type="hidden" name="id" id="form-id">
+        <div class="layui-form-item">
+            <label class="layui-form-label">用户名</label>
+            <div class="layui-input-block">
+                <input type="text" name="username" id="form-username" placeholder="请输入用户名" class="layui-input" lay-verify="required">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">密码</label>
+            <div class="layui-input-block">
+                <input type="password" name="password" id="form-password" placeholder="请输入密码（修改时留空表示不修改）" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">状态</label>
+            <div class="layui-input-block">
+                <input type="radio" name="status" value="1" title="正常" checked>
+                <input type="radio" name="status" value="0" title="禁用">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="layui-btn" lay-submit lay-filter="form-save">保存</button>
+                <button class="layui-btn layui-btn-primary" type="button" id="btn-cancel">取消</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% end %}
+
+{% block scripts %}
+<script>
+    layui.use(['table', 'form', 'layer', 'jquery'], function(){
+        var table = layui.table;
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.jquery;
+
+        $('.sidebar-menu li').removeClass('active');
+        $('.sidebar-menu li:has(a:contains("用户管理"))').addClass('active').find('.submenu').show();
+        $('.sidebar-menu li:has(a:contains("用户列表"))').addClass('active');
+
+        table.render({
+            elem: '#user-table',
+            url: '/admin/api/user/list',
+            method: 'get',
+            page: {
+                limit: 20,
+                limits: [10, 20, 50, 100],
+                layout: ['count', 'prev', 'page', 'next', 'limits', 'skip']
+            },
+            cols: [[
+                {type: 'checkbox', fixed: 'left'},
+                {field: 'id', title: 'ID', width: 80, sort: true, fixed: 'left'},
+                {field: 'username', title: '用户名', width: 180},
+                {field: 'role_name', title: '角色', width: 120},
+                {field: 'status', title: '状态', width: 100, templet: function(d){
+                    return d.status === 1 ? '<span class="layui-badge layui-bg-green">正常</span>' : '<span class="layui-badge layui-bg-gray">禁用</span>';
+                }},
+                {field: 'create_at', title: '创建时间', width: 180, templet: function(d){
+                    var date = new Date(d.create_at);
+                    var year = date.getFullYear();
+                    var month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    var day = date.getDate().toString().padStart(2, '0');
+                    var hour = date.getHours().toString().padStart(2, '0');
+                    var minute = date.getMinutes().toString().padStart(2, '0');
+                    return year + '-' + month + '-' + day + ' ' + hour + ':' + minute;
+                }},
+                {title: '操作', width: 180, toolbar: '#toolbar-user', fixed: 'right'}
+            ]],
+            parseData: function(res){
+                return {
+                    "code": res.code,
+                    "msg": res.msg,
+                    "count": res.data.total,
+                    "data": res.data.list
+                };
+            },
+            cellMinWidth: 80
+        });
+
+        $('#btn-search').on('click', function(){
+            var username = $('#search-username').val();
+            table.reload('user-table', {
+                where: {username: username},
+                page: {curr: 1}
+            });
+        });
+
+        $('#btn-add').on('click', function(){
+            $('#user-form')[0].reset();
+            $('#form-id').val('');
+            $('#form-password').attr('placeholder', '请输入密码');
+            form.render();
+            layer.open({
+                type: 1,
+                title: '新增用户',
+                area: ['500px', '350px'],
+                content: $('#user-form-dialog')
+            });
+        });
+
+        $('#btn-cancel').on('click', function(){
+            layer.closeAll();
+        });
+
+        form.on('submit(form-save)', function(data){
+            var formData = data.field;
+            var url = formData.id ? '/admin/api/user/update' : '/admin/api/user/add';
+            
+            $.post(url, formData, function(res){
+                if(res.code === 0){
+                    layer.msg(res.msg, {icon: 1});
+                    layer.closeAll();
+                    table.reload('user-table');
+                } else {
+                    layer.msg(res.msg, {icon: 2});
+                }
+            });
+            return false;
+        });
+
+        table.on('tool(user-table)', function(obj){
+            var data = obj.data;
+            if(obj.event === 'edit'){
+                $('#form-id').val(data.id);
+                $('#form-username').val(data.username);
+                $('#form-password').val('').attr('placeholder', '留空表示不修改密码');
+                $('input[name="status"][value="' + data.status + '"]').prop('checked', true);
+                form.render();
+                layer.open({
+                    type: 1,
+                    title: '编辑用户',
+                    area: ['500px', '350px'],
+                    content: $('#user-form-dialog')
+                });
+            } else if(obj.event === 'delete'){
+                layer.confirm('确定要删除用户 "' + data.username + '" 吗？', function(index){
+                    var xsrf = $('input[name="_xsrf"]').val();
+                    $.post('/admin/api/user/delete', {id: data.id, _xsrf: xsrf}, function(res){
+                        if(res.code === 0){
+                            layer.msg(res.msg, {icon: 1});
+                            table.reload('user-table');
+                        } else {
+                            layer.msg(res.msg, {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                });
+            }
+        });
+
+        $('#btn-batch-delete').on('click', function(){
+            var checkStatus = table.checkStatus('user-table');
+            var ids = checkStatus.data.map(function(item){
+                return item.id;
+            });
+            if(ids.length === 0){
+                layer.msg('请选择要删除的用户', {icon: 0});
+                return;
+            }
+            layer.confirm('确定要删除选中的 ' + ids.length + ' 个用户吗？', function(index){
+                var xsrf = $('input[name="_xsrf"]').val();
+                $.post('/admin/api/user/batch-delete', {ids: JSON.stringify(ids), _xsrf: xsrf}, function(res){
+                    if(res.code === 0){
+                        layer.msg(res.msg, {icon: 1});
+                        table.reload('user-table');
+                    } else {
+                        layer.msg(res.msg, {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        });
+
+        $(document).on('keyup', '#search-username', function(e){
+            if(e.keyCode === 13){
+                $('#btn-search').click();
+            }
+        });
+    });
+</script>
+{% end %}

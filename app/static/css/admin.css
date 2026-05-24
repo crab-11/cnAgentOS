@@ -1,0 +1,119 @@
+/* 后台管理样式 */
+
+.layui-layout-admin .layui-logo {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.layui-layout-admin .layui-logo i {
+    color: #00d4ff;
+    margin-right: 8px;
+}
+
+.layui-nav-tree .layui-nav-child a {
+    padding-left: 50px;
+}
+
+.layui-nav-tree .layui-nav-child a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.layui-side .layui-nav-tree {
+    width: 200px;
+}
+
+.layui-body {
+    padding: 15px;
+    background-color: #f2f2f2;
+    left: 200px;
+}
+
+.layui-body.layui-hide {
+    left: 0;
+}
+
+.layui-tab-content {
+    padding: 0;
+    min-height: calc(100vh - 180px);
+}
+
+.layui-tab {
+    margin: 0;
+}
+
+.layui-tab-title {
+    background-color: #fff;
+    border-radius: 4px 4px 0 0;
+    padding: 0 15px;
+}
+
+.layui-tab-content > .layui-tab-item {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 0 0 4px 4px;
+    min-height: calc(100vh - 220px);
+}
+
+.layui-card {
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.layui-card-header i {
+    margin-right: 8px;
+    color: #1e9fff;
+}
+
+.layui-footer {
+    padding: 0 20px;
+    line-height: 44px;
+    background-color: #fff;
+    box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.05);
+    left: 200px;
+}
+
+.layui-footer.layui-hide {
+    left: 0;
+}
+
+.layui-right {
+    text-align: right;
+}
+
+.layui-right span {
+    color: #666;
+    font-size: 13px;
+}
+
+.toolbar {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.layui-table-view {
+    margin-top: 0;
+    border-radius: 4px;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.layui-table-cell {
+    padding: 12px 8px;
+}
+
+.layui-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.layui-btn-group {
+    margin-right: 8px;
+}
