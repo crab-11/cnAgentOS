@@ -1,0 +1,62 @@
+# 程序的主入口
+# 承担服务器容器 + 程序作用
+# 服务器容器: 提供 http 容器服务，程序放置于该容器中运行
+# 程序: 智能瞭望与智能问数系统
+
+import os
+import tornado.ioloop
+import tornado.web
+from tornado.httpserver import HTTPServer
+
+# 引入 controller 层
+from app.controllers.auth import LoginHandler, LogoutHandler
+from app.controllers.home import IndexHandler
+
+# 引入数据库初始化方法
+from app.models.db import init_db
+
+
+def make_app():
+    base_url = os.path.dirname(os.path.abspath(__file__))
+
+    settings = dict(
+        # 预留 view 层的配置
+        template_path=os.path.join(base_url, "app", "templates"),
+        static_path=os.path.join(base_url, "app", "static"),
+
+        # cookie 配置
+        cookie_secret="demp-cookie-secret-change-wayne",
+
+        # 登录跳转地址
+        login_url="/auth/login",
+
+        # 开启 xsrf 防护
+        xsrf_cookies=True,
+
+        # 开发模式
+        debug=True,
+        autoreload=True
+    )
+
+    return tornado.web.Application([
+        (r"/", IndexHandler),
+        (r"/auth/login", LoginHandler),
+        (r"/auth/logout", LogoutHandler),
+    ], **settings)
+
+
+if __name__ == "__main__":
+    # 启动服务前，初始化数据库
+    init_db()
+
+    app = make_app()
+    server = HTTPServer(app)
+
+    server.bind(10086)
+
+    # Windows 下不能用 start(0)，这里用 1
+    server.start(1)
+
+    print("====== Server Start ====== : 10086 ======", flush=True)
+
+    tornado.ioloop.IOLoop.current().start()
