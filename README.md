@@ -52,6 +52,19 @@ python main.py
 - 统一 XSRF AJAX 请求头处理
 - 后台主页/控制台预留
 
+### 数字员工
+
+- 后台支持数字员工管理
+- 支持动态配置员工名称、`@别名`、分类（AI / 普通）、执行方式（模型 / API）
+- AI 员工支持默认模型或专属模型绑定、Prompt 配置、SSE 流式输出
+- 普通员工支持绑定接口管理中的 API 服务、参数名与参数模板配置
+- 提供后台测试能力，可直接验证模型员工和 API 员工响应
+- 内置默认员工：`川小码`、`天气`、`音乐`
+- `@川小码` 已支持通过默认模型进行智能对话
+- `@天气` 已支持按城市名称请求天气接口
+- `@音乐` 已支持获取随机音乐推荐卡片数据
+- 提供用户侧调用接口，支持通过 `@别名` 解析数字员工请求
+
 ### 用户管理
 
 - 用户列表分页，默认每页 20 条
@@ -132,13 +145,17 @@ cnAgentOS/
 │   │   ├── admin_user.py           # 后台用户管理
 │   │   ├── admin_role.py           # 后台角色管理
 │   │   ├── admin_permission.py     # 后台功能管理
-│   │   └── admin_lookout.py        # 智能瞭望/数据仓库
+│   │   ├── admin_robot.py          # 数字员工管理
+│   │   ├── admin_lookout.py        # 智能瞭望/数据仓库
+│   │   └── robot.py                # 用户侧数字员工调用
 │   ├── models/
 │   │   ├── db.py                   # SQLite 连接和初始化
 │   │   ├── user.py                 # 用户模型
 │   │   ├── role.py                 # 角色模型
 │   │   ├── permission.py           # 功能/权限模型
-│   │   └── lookout.py              # 瞭望源/采集/数据仓库模型
+│   │   ├── api_interface.py        # 接口服务模型
+│   │   ├── lookout.py              # 瞭望源/采集/数据仓库模型
+│   │   └── robot.py                # 数字员工模型与调用内核
 │   ├── templates/
 │   │   ├── admin_login.html        # 后台登录页
 │   │   ├── admin_base.html         # 后台基础布局
@@ -146,6 +163,7 @@ cnAgentOS/
 │   │   ├── admin_user.html         # 用户管理页
 │   │   ├── admin_role.html         # 角色管理页
 │   │   ├── admin_permission.html   # 功能管理页
+│   │   ├── admin_robot.html        # 数字员工管理页
 │   │   ├── admin_lookout_source.html # 瞭望源管理页
 │   │   ├── admin_data_warehouse.html # 数据仓库页
 │   │   └── admin_data_warehouse_detail.html # 深采详情页
@@ -165,6 +183,9 @@ cnAgentOS/
 | `/` | GET | 用户侧首页 |
 | `/auth/login` | GET/POST | 用户侧登录 |
 | `/auth/logout` | POST | 用户侧退出 |
+| `/api/robot/options` | GET | 获取可用数字员工 |
+| `/api/robot/invoke` | POST | 用户侧调用数字员工 |
+| `/api/robot/invoke-stream` | GET | 用户侧流式调用数字员工 |
 
 ### 后台管理侧
 
@@ -192,6 +213,15 @@ cnAgentOS/
 | `/admin/api/permission/add` | POST | 新增功能 |
 | `/admin/api/permission/update` | POST | 修改功能 |
 | `/admin/api/permission/delete` | POST | 删除功能 |
+| `/admin/robot` | GET | 数字员工管理页面 |
+| `/admin/api/robot/list` | GET | 数字员工列表 |
+| `/admin/api/robot/detail` | GET | 数字员工详情 |
+| `/admin/api/robot/options` | GET | 可绑定模型/API 选项 |
+| `/admin/api/robot/add` | POST | 新增数字员工 |
+| `/admin/api/robot/update` | POST | 修改数字员工 |
+| `/admin/api/robot/delete` | POST | 删除数字员工 |
+| `/admin/api/robot/test` | POST | 数字员工同步测试 |
+| `/admin/api/robot/test-stream` | GET | 数字员工流式测试 |
 | `/admin/lookout/source` | GET | 瞭望源管理页面 |
 | `/admin/api/lookout/source/list` | GET | 瞭望源列表 |
 | `/admin/api/lookout/source/options` | GET | 启用中的采集源选项 |
@@ -220,6 +250,8 @@ cnAgentOS/
 | `permissions` | 功能/菜单/权限定义 |
 | `role_permissions` | 角色与功能权限映射 |
 | `user_roles` | 用户与角色映射 |
+| `api_interfaces` | 接口管理与外部 API 服务配置 |
+| `digital_employees` | 数字员工配置、别名、模型/API 绑定 |
 | `lookout_sources` | 瞭望源配置、请求头、参数规则、提取规则 |
 | `lookout_records` | 采集入库结果 |
 | `lookout_tasks` | 采集任务日志 |
@@ -271,8 +303,9 @@ cnAgentOS/
 | 角色管理 | 已完成 | 增删改查、状态维护、系统角色保护、功能权限勾选 |
 | 功能管理 | 已完成 | 树形功能维护、权限树、角色映射 |
 | 后台首页 | 预留 | 后续模块完成后统一完善 |
-| 智能问数 | 待规划 | 后续核心业务 |
+| 智能问数 | 开发中 | 已具备数字员工调用接口，用户侧对话界面待补充 |
 | AI 智能瞭望 | 开发中 | 已支持规则化源管理、独立采集工作台、数据入库、深采详情查看 |
+| 数字员工 | 开发中 | 已支持后台管理、默认员工种子、模型/API 调用与 SSE 测试 |
 
 ## 后续建议
 
@@ -285,4 +318,4 @@ cnAgentOS/
 ---
 
 **文档更新时间**：2026-05-24  
-**文档版本**：v1.5
+**文档版本**：v1.7

@@ -1,0 +1,717 @@
+{% extends "admin_base.html" %}
+
+{% block body %}
+<div class="toolbar">
+    <div class="layui-form-item" style="margin-bottom:0;">
+        <div class="layui-inline">
+            <input type="text" id="search-keyword" placeholder="搜索名称、别名、说明" class="layui-input" style="width: 260px;">
+        </div>
+        <div class="layui-inline">
+            <select id="search-type" class="layui-input" style="width: 120px;">
+                <option value="">全部分类</option>
+                <option value="ai">AI</option>
+                <option value="normal">普通</option>
+            </select>
+        </div>
+        <div class="layui-inline">
+            <select id="search-status" class="layui-input" style="width: 120px;">
+                <option value="">全部状态</option>
+                <option value="1">启用</option>
+                <option value="0">禁用</option>
+            </select>
+        </div>
+        <div class="layui-inline">
+            <button class="layui-btn" id="btn-search"><i class="fas fa-search"></i> 搜索</button>
+            <button class="layui-btn layui-btn-normal" id="btn-add"><i class="fas fa-plus"></i> 新增员工</button>
+        </div>
+    </div>
+</div>
+
+<div class="robot-stats">
+    <div class="robot-stat-card">
+        <span>员工总数</span>
+        <strong id="stat-total">0</strong>
+    </div>
+    <div class="robot-stat-card accent-ai">
+        <span>AI 员工</span>
+        <strong id="stat-ai">0</strong>
+    </div>
+    <div class="robot-stat-card accent-api">
+        <span>普通员工</span>
+        <strong id="stat-normal">0</strong>
+    </div>
+    <div class="robot-stat-card accent-on">
+        <span>启用中</span>
+        <strong id="stat-on">0</strong>
+    </div>
+</div>
+
+<div class="layui-card">
+    <div class="layui-card-header">数字员工管理</div>
+    <div class="layui-card-body" style="padding:0;">
+        <div class="table-container">
+            <table id="robot-table" lay-filter="robot-table"></table>
+        </div>
+    </div>
+</div>
+
+<script type="text/html" id="robot-toolbar">
+    <a class="layui-btn layui-btn-xs" lay-event="test"><i class="fas fa-vial"></i> 测试</a>
+    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="edit"><i class="fas fa-edit"></i> 编辑</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete"><i class="fas fa-trash"></i> 删除</a>
+</script>
+
+<div id="robot-form-dialog" style="display:none;">
+    <form class="layui-form robot-form" id="robot-form" lay-filter="robot-form">
+        {% module xsrf_form_html() %}
+        <input type="hidden" name="id" id="form-id">
+        <div class="robot-form-grid">
+            <div class="layui-form-item">
+                <label class="layui-form-label"><i class="required">*</i>员工名称</label>
+                <div class="layui-input-block">
+                    <input type="text" name="name" id="form-name" class="layui-input" placeholder="如：川小码">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label"><i class="required">*</i>员工别名</label>
+                <div class="layui-input-block">
+                    <input type="text" name="alias" id="form-alias" class="layui-input" placeholder="用户侧通过 @别名 调用">
+                </div>
+            </div>
+        </div>
+        <div class="robot-form-grid">
+            <div class="layui-form-item">
+                <label class="layui-form-label"><i class="required">*</i>员工分类</label>
+                <div class="layui-input-block">
+                    <select name="employee_type" id="form-employee-type">
+                        <option value="ai">AI</option>
+                        <option value="normal">普通</option>
+                    </select>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label"><i class="required">*</i>服务类型</label>
+                <div class="layui-input-block">
+                    <select name="service_type" id="form-service-type">
+                        <option value="model">模型服务</option>
+                        <option value="api">API服务</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">说明</label>
+            <div class="layui-input-block">
+                <textarea name="description" id="form-description" class="layui-textarea" rows="2" placeholder="说明该数字员工的职责与调用方式"></textarea>
+            </div>
+        </div>
+
+        <div id="model-config-panel">
+            <div class="switch-row">
+                <input type="checkbox" name="use_default_model" id="form-use-default-model" lay-skin="switch" lay-text="默认模型|专属模型" value="1" checked>
+            </div>
+            <div class="layui-form-item model-service-row">
+                <label class="layui-form-label">专属模型</label>
+                <div class="layui-input-block">
+                    <select name="model_service_id" id="form-model-service-id">
+                        <option value="0">请选择模型服务</option>
+                    </select>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">Prompt</label>
+                <div class="layui-input-block">
+                    <textarea name="prompt_template" id="form-prompt-template" class="layui-textarea" rows="5" placeholder="仅 AI 员工使用，用于设定角色、语气、边界和工作方式"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div id="api-config-panel">
+            <div class="layui-form-item">
+                <label class="layui-form-label">API服务</label>
+                <div class="layui-input-block">
+                    <select name="api_interface_id" id="form-api-interface-id">
+                        <option value="0">请选择接口服务</option>
+                    </select>
+                </div>
+            </div>
+            <div class="robot-form-grid">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">参数名</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="request_param_name" id="form-request-param-name" class="layui-input" placeholder="如：city">
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">响应模式</label>
+                    <div class="layui-input-block">
+                        <select name="response_mode" id="form-response-mode">
+                            <option value="text">文本</option>
+                            <option value="json">JSON</option>
+                            <option value="card">卡片</option>
+                            <option value="sse">SSE</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">参数模板</label>
+                <div class="layui-input-block">
+                    <textarea name="request_param_template" id="form-request-param-template" class="layui-textarea" rows="3" placeholder='JSON 对象，支持 {query} 占位符，例如：{"city":"{query}"}'></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="switch-row">
+            <input type="checkbox" name="status" id="form-status" lay-skin="switch" lay-text="启用|禁用" value="1" checked>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">备注</label>
+            <div class="layui-input-block">
+                <textarea name="remark" id="form-remark" class="layui-textarea" rows="2" placeholder="可填写调用示例、注意事项、依赖服务等"></textarea>
+            </div>
+        </div>
+        <div class="dialog-actions">
+            <button class="layui-btn layui-btn-normal" lay-submit lay-filter="robot-save">保存</button>
+            <button type="button" class="layui-btn layui-btn-primary btn-close-dialog">取消</button>
+        </div>
+    </form>
+</div>
+
+<div id="robot-test-dialog" style="display:none;">
+    <div class="robot-test-shell">
+        <div class="robot-test-title" id="test-employee-name">数字员工测试</div>
+        <textarea id="test-query" class="layui-textarea" rows="4" placeholder="示例：北京市 / 你好，请介绍一下你自己"></textarea>
+        <div class="robot-test-actions">
+            <input type="checkbox" id="test-stream" title="SSE 流式测试" lay-skin="primary" checked>
+            <button class="layui-btn layui-btn-normal" id="btn-run-test"><i class="fas fa-paper-plane"></i> 开始测试</button>
+        </div>
+        <div class="robot-test-output" id="test-output"></div>
+    </div>
+</div>
+{% end %}
+
+{% block scripts %}
+<script>
+layui.use(['table', 'jquery', 'layer', 'form'], function(){
+    var table = layui.table;
+    var $ = layui.jquery;
+    var layer = layui.layer;
+    var form = layui.form;
+    var employeeOptions = {models: [], apis: []};
+    var currentTestId = null;
+    var currentEventSource = null;
+
+    var $menu = $('.sidebar-menu li:has(a:contains("数字员工"))');
+    $('.sidebar-menu li').removeClass('active');
+    $menu.addClass('active');
+    $menu.find('.submenu').show();
+    $menu.find('.submenu a:contains("员工管理")').parent().addClass('active');
+
+    function renderType(type){
+        return type === 'ai'
+            ? '<span class="type-pill ai">AI</span>'
+            : '<span class="type-pill normal">普通</span>';
+    }
+
+    function renderService(row){
+        if (row.service_type === 'model') {
+            return '<div><strong>模型</strong><div class="mini-tip">' + (row.use_default_model === 1 ? '默认模型' : (row.model_service_name || '未绑定')) + '</div></div>';
+        }
+        return '<div><strong>API</strong><div class="mini-tip">' + (row.api_interface_name || '未绑定') + '</div></div>';
+    }
+
+    function renderStatus(status){
+        return status === 1
+            ? '<span class="status-pill on">启用</span>'
+            : '<span class="status-pill off">禁用</span>';
+    }
+
+    function refreshStats(rows){
+        rows = rows || [];
+        var ai = 0, normal = 0, on = 0;
+        rows.forEach(function(item){
+            if(item.employee_type === 'ai') ai += 1;
+            else normal += 1;
+            if(item.status === 1) on += 1;
+        });
+        $('#stat-total').text(rows.length);
+        $('#stat-ai').text(ai);
+        $('#stat-normal').text(normal);
+        $('#stat-on').text(on);
+    }
+
+    function loadOptions(done){
+        $.get('/admin/api/robot/options', function(res){
+            if(res.code !== 0){
+                layer.msg(res.msg, {icon: 2});
+                return;
+            }
+            employeeOptions = res.data || {models: [], apis: []};
+            fillServiceOptions();
+            if(done){ done(); }
+        });
+    }
+
+    function fillServiceOptions(){
+        var modelHtml = '<option value="0">请选择模型服务</option>';
+        (employeeOptions.models || []).forEach(function(item){
+            modelHtml += '<option value="' + item.id + '">' + escapeHtml(item.name) + ' / ' + escapeHtml(item.model_name) + '</option>';
+        });
+        $('#form-model-service-id').html(modelHtml);
+
+        var apiHtml = '<option value="0">请选择接口服务</option>';
+        (employeeOptions.apis || []).forEach(function(item){
+            apiHtml += '<option value="' + item.id + '">' + escapeHtml(item.name) + ' / ' + escapeHtml(item.endpoint_url) + '</option>';
+        });
+        $('#form-api-interface-id').html(apiHtml);
+        form.render('select');
+    }
+
+    function syncPanels(){
+        var serviceType = $('#form-service-type').val();
+        var useDefault = $('#form-use-default-model').prop('checked');
+        $('#model-config-panel').toggle(serviceType === 'model');
+        $('#api-config-panel').toggle(serviceType === 'api');
+        $('.model-service-row').toggle(serviceType === 'model' && !useDefault);
+    }
+
+    function resetForm(){
+        $('#robot-form')[0].reset();
+        $('#form-id').val('');
+        $('#form-name').val('');
+        $('#form-alias').val('');
+        $('#form-description').val('');
+        $('#form-prompt-template').val('');
+        $('#form-request-param-name').val('');
+        $('#form-request-param-template').val('');
+        $('#form-remark').val('');
+        $('#form-employee-type').val('ai');
+        $('#form-service-type').val('model');
+        $('#form-response-mode').val('sse');
+        $('#form-model-service-id').val('0');
+        $('#form-api-interface-id').val('0');
+        $('#form-use-default-model').prop('checked', true);
+        $('#form-status').prop('checked', true);
+        syncPanels();
+        form.render();
+    }
+
+    function fillForm(data){
+        resetForm();
+        $('#form-id').val(data.id);
+        $('#form-name').val(data.name);
+        $('#form-alias').val(data.alias);
+        $('#form-description').val(data.description || '');
+        $('#form-prompt-template').val(data.prompt_template || '');
+        $('#form-request-param-name').val(data.request_param_name || '');
+        $('#form-request-param-template').val(data.request_param_template || '');
+        $('#form-remark').val(data.remark || '');
+        $('#form-employee-type').val(data.employee_type);
+        $('#form-service-type').val(data.service_type);
+        $('#form-response-mode').val(data.response_mode || 'text');
+        $('#form-model-service-id').val(String(data.model_service_id || 0));
+        $('#form-api-interface-id').val(String(data.api_interface_id || 0));
+        $('#form-use-default-model').prop('checked', data.use_default_model === 1);
+        $('#form-status').prop('checked', data.status === 1);
+        syncPanels();
+        form.render();
+    }
+
+    table.render({
+        elem: '#robot-table',
+        id: 'robot-table',
+        url: '/admin/api/robot/list',
+        page: {limit: 20, limits: [20, 50, 100]},
+        cols: [[
+            {field: 'name', title: '员工名称', width: 140},
+            {field: 'alias', title: '调用别名', width: 120, templet: function(d){ return '<span class="alias-tag">@' + escapeHtml(d.alias) + '</span>'; }},
+            {field: 'employee_type', title: '分类', width: 90, templet: function(d){ return renderType(d.employee_type); }},
+            {field: 'service_type', title: '执行方式', width: 190, templet: function(d){ return renderService(d); }},
+            {field: 'response_mode', title: '响应模式', width: 100},
+            {field: 'description', title: '说明', minWidth: 260, templet: function(d){ return d.description || '-'; }},
+            {field: 'status', title: '状态', width: 80, templet: function(d){ return renderStatus(d.status); }},
+            {field: 'update_at', title: '更新时间', width: 170},
+            {title: '操作', width: 180, toolbar: '#robot-toolbar', fixed: 'right'}
+        ]],
+        parseData: function(res){
+            refreshStats((res.data && res.data.list) || []);
+            return {code: res.code, msg: res.msg, count: res.data.total, data: res.data.list};
+        }
+    });
+
+    function reloadTable(){
+        table.reload('robot-table', {
+            where: {
+                keyword: $('#search-keyword').val(),
+                employee_type: $('#search-type').val(),
+                status: $('#search-status').val()
+            },
+            page: {curr: 1}
+        });
+    }
+
+    $('#btn-search').on('click', reloadTable);
+    $(document).on('keyup', '#search-keyword', function(e){ if(e.keyCode === 13){ reloadTable(); } });
+
+    $('#btn-add').on('click', function(){
+        loadOptions(function(){
+            resetForm();
+            layer.open({
+                type: 1,
+                title: '新增数字员工',
+                area: ['880px', '82vh'],
+                content: $('#robot-form-dialog')
+            });
+        });
+    });
+
+    $(document).on('click', '.btn-close-dialog', function(){
+        layer.closeAll();
+    });
+
+    form.on('select()', syncPanels);
+    form.on('switch()', syncPanels);
+
+    table.on('tool(robot-table)', function(obj){
+        var data = obj.data;
+        if(obj.event === 'edit'){
+            loadOptions(function(){
+                $.get('/admin/api/robot/detail', {id: data.id}, function(res){
+                    if(res.code !== 0){
+                        layer.msg(res.msg, {icon: 2});
+                        return;
+                    }
+                    fillForm(res.data);
+                    layer.open({
+                        type: 1,
+                        title: '编辑数字员工',
+                        area: ['880px', '82vh'],
+                        content: $('#robot-form-dialog')
+                    });
+                });
+            });
+        } else if(obj.event === 'delete'){
+            layer.confirm('确定删除数字员工 @' + escapeHtml(data.alias) + ' 吗？', function(index){
+                $.post('/admin/api/robot/delete', {id: data.id, _xsrf: window.getXsrfToken()}, function(res){
+                    layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+                    if(res.code === 0){
+                        reloadTable();
+                    }
+                });
+                layer.close(index);
+            });
+        } else if(obj.event === 'test'){
+            currentTestId = data.id;
+            $('#test-employee-name').text(data.name + ' / @' + data.alias);
+            $('#test-query').val(data.alias === '天气' ? '北京市' : '');
+            $('#test-output').html('');
+            $('#test-stream').prop('checked', data.service_type === 'model');
+            form.render('checkbox');
+            layer.open({
+                type: 1,
+                title: '数字员工测试',
+                area: ['760px', '620px'],
+                content: $('#robot-test-dialog'),
+                end: function(){
+                    if(currentEventSource){
+                        currentEventSource.close();
+                        currentEventSource = null;
+                    }
+                }
+            });
+        }
+    });
+
+    form.on('submit(robot-save)', function(data){
+        var formData = data.field;
+        formData.use_default_model = formData.use_default_model ? 1 : 0;
+        formData.status = formData.status ? 1 : 0;
+        var url = formData.id ? '/admin/api/robot/update' : '/admin/api/robot/add';
+        $.post(url, formData, function(res){
+            layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+            if(res.code === 0){
+                layer.closeAll();
+                reloadTable();
+            }
+        });
+        return false;
+    });
+
+    $('#btn-run-test').on('click', function(){
+        var query = $('#test-query').val();
+        if($('#test-stream').prop('checked')){
+            if(currentEventSource){
+                currentEventSource.close();
+            }
+            $('#test-output').html('<div class="typing">数字员工响应中...</div>');
+            currentEventSource = new EventSource('/admin/api/robot/test-stream?id=' + encodeURIComponent(currentTestId) + '&query=' + encodeURIComponent(query));
+            var output = '';
+            currentEventSource.onmessage = function(event){
+                try {
+                    var payload = JSON.parse(event.data);
+                    output += payload.delta || '';
+                    $('#test-output').text(output);
+                } catch (e) {}
+            };
+            currentEventSource.addEventListener('result', function(event){
+                $('#test-output').text(event.data);
+            });
+            currentEventSource.addEventListener('summary', function(event){
+                try {
+                    var meta = JSON.parse(event.data);
+                    $('#test-output').append('\n\n[完成] 延迟 ' + meta.latency_ms + 'ms，Token ' + meta.total_tokens);
+                } catch (e) {}
+            });
+            currentEventSource.addEventListener('done', function(){
+                currentEventSource.close();
+                currentEventSource = null;
+            });
+            currentEventSource.addEventListener('error', function(){
+                if(currentEventSource){
+                    currentEventSource.close();
+                    currentEventSource = null;
+                }
+            });
+            return;
+        }
+
+        $('#test-output').html('<div class="typing">数字员工响应中...</div>');
+        $.post('/admin/api/robot/test', {id: currentTestId, query: query, _xsrf: window.getXsrfToken()}, function(res){
+            if(res.code !== 0){
+                $('#test-output').html('<div class="answer-error">' + escapeHtml(res.msg) + '</div>');
+                return;
+            }
+            var data = res.data || {};
+            var html = '';
+            if(data.content){
+                html += '<div class="answer-text">' + escapeHtml(typeof data.content === 'string' ? data.content : JSON.stringify(data.content)) + '</div>';
+            }
+            if(data.card){
+                html += '<div class="music-card">';
+                html += '<strong>' + escapeHtml(data.card.title || '随机音乐') + '</strong>';
+                html += '<span>' + escapeHtml(data.card.artist || '未知歌手') + '</span>';
+                if(data.card.url){
+                    html += '<a href="' + escapeHtml(data.card.url) + '" target="_blank">播放链接</a>';
+                }
+                html += '</div>';
+            }
+            if(data.raw){
+                html += '<pre class="json-preview">' + escapeHtml(JSON.stringify(data.raw, null, 2)) + '</pre>';
+            }
+            $('#test-output').html(html || '<div class="answer-text">调用完成，但没有返回可展示内容。</div>');
+        });
+    });
+
+    function escapeHtml(value){
+        return String(value || '').replace(/[&<>"']/g, function(ch){
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+        });
+    }
+
+    loadOptions();
+});
+</script>
+<style>
+.robot-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.robot-stat-card {
+    padding: 16px 18px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #10233f, #1f5c8d);
+    color: #fff;
+    box-shadow: 0 14px 26px rgba(16, 35, 63, 0.14);
+}
+
+.robot-stat-card span {
+    display: block;
+    color: rgba(255,255,255,0.74);
+    font-size: 12px;
+}
+
+.robot-stat-card strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 28px;
+}
+
+.robot-stat-card.accent-ai {
+    background: linear-gradient(135deg, #3c1d66, #8447d3);
+}
+
+.robot-stat-card.accent-api {
+    background: linear-gradient(135deg, #1f4d3a, #23a36e);
+}
+
+.robot-stat-card.accent-on {
+    background: linear-gradient(135deg, #5b3413, #da8c2c);
+}
+
+.alias-tag {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #eef4ff;
+    color: #2356ad;
+    font-weight: 700;
+}
+
+.type-pill,
+.status-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.type-pill.ai {
+    color: #7c3aed;
+    background: #f3e8ff;
+}
+
+.type-pill.normal {
+    color: #0f766e;
+    background: #ccfbf1;
+}
+
+.status-pill.on {
+    color: #0f766e;
+    background: #dcfce7;
+}
+
+.status-pill.off {
+    color: #6b7280;
+    background: #e5e7eb;
+}
+
+.mini-tip {
+    margin-top: 3px;
+    color: #7a8699;
+    font-size: 12px;
+}
+
+.robot-form {
+    padding: 20px 22px;
+}
+
+.robot-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.robot-form .layui-form-label {
+    width: 100px;
+}
+
+.robot-form .layui-input-block {
+    margin-left: 130px;
+}
+
+.switch-row {
+    padding: 4px 0 14px 130px;
+}
+
+.dialog-actions {
+    padding-top: 16px;
+    border-top: 1px solid #edf1f6;
+    text-align: right;
+}
+
+.required {
+    color: #ff4d4f;
+    margin-right: 2px;
+}
+
+.robot-test-shell {
+    padding: 20px;
+}
+
+.robot-test-title {
+    margin-bottom: 12px;
+    color: #243148;
+    font-weight: 700;
+}
+
+.robot-test-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 12px 0;
+}
+
+.robot-test-output {
+    min-height: 300px;
+    padding: 16px;
+    color: #dce7ff;
+    background: #111827;
+    border-radius: 10px;
+    white-space: pre-wrap;
+    line-height: 1.7;
+    overflow-y: auto;
+}
+
+.answer-error {
+    color: #ffb4a8;
+}
+
+.typing {
+    color: #86efac;
+}
+
+.music-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 14px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+}
+
+.music-card strong {
+    color: #fff;
+}
+
+.music-card span {
+    color: #cbd5e1;
+}
+
+.music-card a {
+    color: #7dd3fc;
+}
+
+.json-preview {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px;
+    color: #dbeafe;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+@media (max-width: 960px) {
+    .robot-stats,
+    .robot-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .robot-test-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .switch-row {
+        padding-left: 0;
+    }
+}
+</style>
+{% end %}

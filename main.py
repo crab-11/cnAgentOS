@@ -11,6 +11,7 @@ from tornado.httpserver import HTTPServer
 # 引入 controller 层
 from app.controllers.auth import LoginHandler, LogoutHandler
 from app.controllers.home import IndexHandler
+from app.controllers.robot import RobotInvokeHandler, RobotInvokeStreamHandler, RobotOptionsHandler
 
 # 引入后台管理 controller 层
 from app.controllers.admin_auth import AdminLoginHandler, AdminLogoutHandler
@@ -74,6 +75,17 @@ from app.controllers.admin_lookout import (
     AdminDataWarehouseDeepTaskHandler,
     AdminDataWarehouseDeepLogsHandler
 )
+from app.controllers.admin_robot import (
+    AdminRobotHandler,
+    AdminRobotListHandler,
+    AdminRobotDetailHandler,
+    AdminRobotOptionsHandler,
+    AdminRobotAddHandler,
+    AdminRobotUpdateHandler,
+    AdminRobotDeleteHandler,
+    AdminRobotTestHandler,
+    AdminRobotTestStreamHandler
+)
 
 # 引入数据库初始化方法
 from app.models.db import init_db
@@ -106,6 +118,9 @@ def make_app():
         (r"/", IndexHandler),
         (r"/auth/login", LoginHandler),
         (r"/auth/logout", LogoutHandler),
+        (r"/api/robot/options", RobotOptionsHandler),
+        (r"/api/robot/invoke", RobotInvokeHandler),
+        (r"/api/robot/invoke-stream", RobotInvokeStreamHandler),
 
         # 后台管理路由
         (r"/admin/", AdminIndexHandler),
@@ -148,6 +163,17 @@ def make_app():
         (r"/admin/api/model/stats", AdminModelStatsHandler),
         (r"/admin/api/model/test", AdminModelTestHandler),
         (r"/admin/api/model/test-stream", AdminModelStreamTestHandler),
+
+        # 数字员工路由
+        (r"/admin/robot", AdminRobotHandler),
+        (r"/admin/api/robot/list", AdminRobotListHandler),
+        (r"/admin/api/robot/detail", AdminRobotDetailHandler),
+        (r"/admin/api/robot/options", AdminRobotOptionsHandler),
+        (r"/admin/api/robot/add", AdminRobotAddHandler),
+        (r"/admin/api/robot/update", AdminRobotUpdateHandler),
+        (r"/admin/api/robot/delete", AdminRobotDeleteHandler),
+        (r"/admin/api/robot/test", AdminRobotTestHandler),
+        (r"/admin/api/robot/test-stream", AdminRobotTestStreamHandler),
 
         # 智能瞭望与数据管理路由
         (r"/admin/lookout/source", AdminLookoutSourceHandler),

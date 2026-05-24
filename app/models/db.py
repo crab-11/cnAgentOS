@@ -188,6 +188,62 @@ def init_db():
             """
         )
 
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS digital_employees(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                alias TEXT NOT NULL UNIQUE,
+                employee_type TEXT NOT NULL DEFAULT 'normal',
+                service_type TEXT NOT NULL DEFAULT 'api',
+                description TEXT,
+                prompt_template TEXT,
+                model_service_id INTEGER,
+                use_default_model INTEGER NOT NULL DEFAULT 1,
+                api_interface_id INTEGER,
+                request_param_name TEXT,
+                request_param_template TEXT,
+                response_mode TEXT NOT NULL DEFAULT 'text',
+                status INTEGER NOT NULL DEFAULT 1,
+                remark TEXT,
+                create_at TEXT NOT NULL DEFAULT(datetime('now')),
+                update_at TEXT NOT NULL DEFAULT(datetime('now')),
+                FOREIGN KEY(model_service_id) REFERENCES model_services(id) ON DELETE SET NULL,
+                FOREIGN KEY(api_interface_id) REFERENCES api_interfaces(id) ON DELETE SET NULL
+            )
+            """
+        )
+
+        cursor = conn.execute("PRAGMA table_info(digital_employees)")
+        robot_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'employee_type' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN employee_type TEXT NOT NULL DEFAULT 'normal'")
+        if 'service_type' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN service_type TEXT NOT NULL DEFAULT 'api'")
+        if 'description' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN description TEXT")
+        if 'prompt_template' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN prompt_template TEXT")
+        if 'model_service_id' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN model_service_id INTEGER")
+        if 'use_default_model' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN use_default_model INTEGER NOT NULL DEFAULT 1")
+        if 'api_interface_id' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN api_interface_id INTEGER")
+        if 'request_param_name' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN request_param_name TEXT")
+        if 'request_param_template' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN request_param_template TEXT")
+        if 'response_mode' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN response_mode TEXT NOT NULL DEFAULT 'text'")
+        if 'status' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN status INTEGER NOT NULL DEFAULT 1")
+        if 'remark' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN remark TEXT")
+        if 'update_at' not in robot_columns:
+            conn.execute("ALTER TABLE digital_employees ADD COLUMN update_at TEXT NOT NULL DEFAULT(datetime('now'))")
+
         cursor = conn.execute("PRAGMA table_info(api_interfaces)")
         api_interface_columns = [row[1] for row in cursor.fetchall()]
 
@@ -469,6 +525,7 @@ def init_db():
             ("model", "Token统计", "Token统计", "model_token", "menu", "fas fa-chart-line", "/admin/model#stats", 302),
             ("data", "数据仓库", "数据仓库", "data_warehouse", "menu", "fas fa-archive", "/admin/data/warehouse", 401),
             ("settings", "系统参数", "系统参数", "system_params", "menu", "fas fa-cog", "/admin/settings/params", 501),
+            ("robot", "员工管理", "员工管理", "robot_employee", "menu", "fas fa-user-astronaut", "/admin/robot", 601),
         ]
         for parent_code, name, display_name, code, category, icon, url, sort_order in child_permissions:
             parent = conn.execute("SELECT id FROM permissions WHERE code = ?", (parent_code,)).fetchone()
@@ -647,6 +704,108 @@ def init_db():
                         rate_limit_max_requests, token_bypass_limit, default_query_params,
                         remark, status
                     ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    """,
+                    item
+                )
+
+        music_api = conn.execute(
+            "SELECT id FROM api_interfaces WHERE name = ?",
+            ("网易云随机音乐",)
+        ).fetchone()
+        weather_api = conn.execute(
+            "SELECT id FROM api_interfaces WHERE name = ?",
+            ("三日天气查询",)
+        ).fetchone()
+
+        builtin_employees = [
+            (
+                "川小码",
+                "川小码",
+                "ai",
+                "model",
+                "默认 AI 数字员工，负责通用对话、解释与问答。",
+                "你是“川小码”，是 cnAgentOS 中的数字员工。请使用中文，保持专业、友好、简洁。若用户问题不清晰，请先澄清；若是执行类请求，请先说明你的理解再给出结果。",
+                None,
+                1,
+                None,
+                None,
+                None,
+                "sse",
+                1,
+                "使用模型引擎中的默认模型服务进行 SSE 对话。"
+            ),
+            (
+                "天气",
+                "天气",
+                "normal",
+                "api",
+                "通过天气接口提供城市天气查询。",
+                None,
+                None,
+                0,
+                weather_api[0] if weather_api else None,
+                "city",
+                '{"city":"{query}"}',
+                "json",
+                1,
+                "用户输入格式：@天气 北京市"
+            ),
+            (
+                "音乐",
+                "音乐",
+                "normal",
+                "api",
+                "通过随机音乐接口返回音乐推荐卡片。",
+                None,
+                None,
+                0,
+                music_api[0] if music_api else None,
+                None,
+                None,
+                "card",
+                1,
+                "用户输入格式：@音乐"
+            ),
+        ]
+        for item in builtin_employees:
+            existing_robot = conn.execute(
+                "SELECT id, alias FROM digital_employees WHERE name = ? OR alias = ?",
+                (item[0], item[1])
+            ).fetchone()
+            if existing_robot:
+                conn.execute(
+                    """
+                    UPDATE digital_employees
+                    SET name = ?,
+                        employee_type = ?,
+                        service_type = ?,
+                        description = ?,
+                        prompt_template = ?,
+                        model_service_id = ?,
+                        use_default_model = ?,
+                        api_interface_id = ?,
+                        request_param_name = ?,
+                        request_param_template = ?,
+                        response_mode = ?,
+                        status = ?,
+                        remark = ?,
+                        update_at = datetime('now')
+                    WHERE id = ?
+                    """,
+                    (
+                        item[0], item[2], item[3], item[4], item[5], item[6], item[7],
+                        item[8], item[9], item[10], item[11], item[12], item[13], existing_robot[0]
+                    )
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO digital_employees(
+                        name, alias, employee_type, service_type, description,
+                        prompt_template, model_service_id, use_default_model,
+                        api_interface_id, request_param_name, request_param_template,
+                        response_mode, status, remark
+                    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     item
                 )
