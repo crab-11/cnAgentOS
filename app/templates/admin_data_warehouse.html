@@ -1,0 +1,71 @@
+{% extends "admin_base.html" %}
+
+{% block body %}
+<div class="toolbar">
+    <div class="layui-form-item">
+        <div class="layui-inline">
+            <input type="text" id="search-keyword" placeholder="搜索标题、摘要、来源" class="layui-input" style="width: 260px;">
+        </div>
+        <div class="layui-inline">
+            <button class="layui-btn" id="btn-search"><i class="fas fa-search"></i> 搜索</button>
+            <button class="layui-btn layui-btn-normal" id="btn-back-source"><i class="fas fa-binoculars"></i> 返回瞭望源</button>
+        </div>
+    </div>
+</div>
+
+<div class="layui-card">
+    <div class="layui-card-header">采集入库数据</div>
+    <div class="layui-card-body" style="padding:0;">
+        <div class="table-container">
+            <table id="warehouse-table" lay-filter="warehouse-table"></table>
+        </div>
+    </div>
+</div>
+{% end %}
+
+{% block scripts %}
+<script>
+layui.use(['table', 'jquery'], function(){
+    var table = layui.table;
+    var $ = layui.jquery;
+
+    var $menu = $('.sidebar-menu li:has(a:contains("数据管理"))');
+    $('.sidebar-menu li').removeClass('active');
+    $menu.addClass('active');
+    $menu.find('.submenu').show();
+    $menu.find('.submenu a:contains("数据仓库")').parent().addClass('active');
+
+    function reloadTable() {
+        table.reload('warehouse-table', {
+            where: {keyword: $('#search-keyword').val()},
+            page: {curr: 1}
+        });
+    }
+
+    table.render({
+        elem: '#warehouse-table',
+        id: 'warehouse-table',
+        url: '/admin/api/data/warehouse/list',
+        page: {limit: 15, limits: [15, 30, 50]},
+        cols: [[
+            {field: 'source_name', title: '来源', width: 180},
+            {field: 'title', title: '标题', minWidth: 280},
+            {field: 'summary', title: '摘要', minWidth: 320, templet: function(d){ return d.summary || '-'; }},
+            {field: 'content_url', title: '原文链接', minWidth: 220, templet: function(d){
+                if(!d.content_url){ return '-'; }
+                return '<a href="' + d.content_url + '" target="_blank" style="color:#1e9fff;">查看原文</a>';
+            }},
+            {field: 'published_at', title: '发布时间', width: 180, templet: function(d){ return d.published_at || '-'; }},
+            {field: 'create_at', title: '入库时间', width: 180}
+        ]],
+        parseData: function(res){
+            return {code: res.code, msg: res.msg, count: res.data.total, data: res.data.list};
+        }
+    });
+
+    $('#btn-search').on('click', reloadTable);
+    $('#btn-back-source').on('click', function(){ window.location.href = '/admin/lookout/source'; });
+    $(document).on('keyup', '#search-keyword', function(e){ if(e.keyCode === 13){ reloadTable(); } });
+});
+</script>
+{% end %}

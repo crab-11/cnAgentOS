@@ -54,6 +54,17 @@ from app.controllers.admin_model import (
     AdminModelTestHandler,
     AdminModelStreamTestHandler
 )
+from app.controllers.admin_lookout import (
+    AdminLookoutSourceHandler,
+    AdminLookoutSourceListHandler,
+    AdminLookoutSourceAddHandler,
+    AdminLookoutSourceUpdateHandler,
+    AdminLookoutSourceDeleteHandler,
+    AdminLookoutCollectHandler,
+    AdminLookoutTaskListHandler,
+    AdminDataWarehouseHandler,
+    AdminDataWarehouseListHandler
+)
 
 # 引入数据库初始化方法
 from app.models.db import init_db
@@ -128,6 +139,17 @@ def make_app():
         (r"/admin/api/model/stats", AdminModelStatsHandler),
         (r"/admin/api/model/test", AdminModelTestHandler),
         (r"/admin/api/model/test-stream", AdminModelStreamTestHandler),
+
+        # 智能瞭望与数据管理路由
+        (r"/admin/lookout/source", AdminLookoutSourceHandler),
+        (r"/admin/api/lookout/source/list", AdminLookoutSourceListHandler),
+        (r"/admin/api/lookout/source/add", AdminLookoutSourceAddHandler),
+        (r"/admin/api/lookout/source/update", AdminLookoutSourceUpdateHandler),
+        (r"/admin/api/lookout/source/delete", AdminLookoutSourceDeleteHandler),
+        (r"/admin/api/lookout/source/collect", AdminLookoutCollectHandler),
+        (r"/admin/api/lookout/task/list", AdminLookoutTaskListHandler),
+        (r"/admin/data/warehouse", AdminDataWarehouseHandler),
+        (r"/admin/api/data/warehouse/list", AdminDataWarehouseListHandler),
     ], **settings)
 
 

@@ -165,6 +165,59 @@ def init_db():
             """
         )
 
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lookout_sources(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                source_type TEXT NOT NULL DEFAULT 'website',
+                target_url TEXT NOT NULL,
+                parser_type TEXT NOT NULL DEFAULT 'html',
+                keywords TEXT,
+                status INTEGER NOT NULL DEFAULT 1,
+                last_collected_at TEXT,
+                remark TEXT,
+                create_at TEXT NOT NULL DEFAULT(datetime('now')),
+                update_at TEXT NOT NULL DEFAULT(datetime('now'))
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lookout_records(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                source_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                summary TEXT,
+                content_url TEXT,
+                published_at TEXT,
+                raw_payload TEXT,
+                content_hash TEXT NOT NULL,
+                create_at TEXT NOT NULL DEFAULT(datetime('now')),
+                FOREIGN KEY(source_id) REFERENCES lookout_sources(id) ON DELETE CASCADE,
+                UNIQUE(source_id, content_hash)
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lookout_tasks(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                source_id INTEGER,
+                source_name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                fetched_count INTEGER NOT NULL DEFAULT 0,
+                stored_count INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT,
+                create_at TEXT NOT NULL DEFAULT(datetime('now')),
+                finish_at TEXT,
+                FOREIGN KEY(source_id) REFERENCES lookout_sources(id) ON DELETE SET NULL
+            )
+            """
+        )
+
         cursor = conn.execute("SELECT COUNT(*) FROM roles")
         if cursor.fetchone()[0] == 0:
             conn.execute(
@@ -265,6 +318,7 @@ def init_db():
 
         child_permissions = [
             ("lookout", "瞭望源管理", "瞭望源管理", "lookout_source", "menu", "fas fa-globe", "/admin/lookout/source", 201),
+            ("lookout", "采集任务", "采集任务", "lookout_task", "menu", "fas fa-tasks", "/admin/lookout/source#tasks", 202),
             ("model", "模型服务", "模型服务", "model_config", "menu", "fas fa-cubes", "/admin/model", 301),
             ("model", "Token统计", "Token统计", "model_token", "menu", "fas fa-chart-line", "/admin/model#stats", 302),
             ("data", "数据仓库", "数据仓库", "data_warehouse", "menu", "fas fa-archive", "/admin/data/warehouse", 401),

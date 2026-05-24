@@ -96,6 +96,16 @@ python main.py
 - 权限树用于角色权限配置
 - 功能管理主要用于角色权限分配引用，不直接面向普通用户操作
 
+### 智能瞭望与数据管理
+
+- 瞭望源管理
+- 支持配置采集地址、解析方式、关键词、启用状态
+- 支持手动执行采集任务
+- 采集任务日志记录抓取数量、入库数量、错误信息
+- 采集结果自动写入数据仓库
+- 数据仓库支持按来源、标题、摘要检索
+- 采集地址默认拦截本地/内网地址
+
 ## 主要目录结构
 
 ```text
@@ -113,19 +123,23 @@ cnAgentOS/
 │   │   ├── admin_home.py           # 后台首页
 │   │   ├── admin_user.py           # 后台用户管理
 │   │   ├── admin_role.py           # 后台角色管理
-│   │   └── admin_permission.py     # 后台功能管理
+│   │   ├── admin_permission.py     # 后台功能管理
+│   │   └── admin_lookout.py        # 智能瞭望/数据仓库
 │   ├── models/
 │   │   ├── db.py                   # SQLite 连接和初始化
 │   │   ├── user.py                 # 用户模型
 │   │   ├── role.py                 # 角色模型
-│   │   └── permission.py           # 功能/权限模型
+│   │   ├── permission.py           # 功能/权限模型
+│   │   └── lookout.py              # 瞭望源/采集/数据仓库模型
 │   ├── templates/
 │   │   ├── admin_login.html        # 后台登录页
 │   │   ├── admin_base.html         # 后台基础布局
 │   │   ├── admin_index.html        # 后台首页
 │   │   ├── admin_user.html         # 用户管理页
 │   │   ├── admin_role.html         # 角色管理页
-│   │   └── admin_permission.html   # 功能管理页
+│   │   ├── admin_permission.html   # 功能管理页
+│   │   ├── admin_lookout_source.html # 瞭望源管理页
+│   │   └── admin_data_warehouse.html # 数据仓库页
 │   └── static/
 │       ├── images/
 │       └── libs/                   # Layui / Bootstrap / Font Awesome
@@ -169,6 +183,15 @@ cnAgentOS/
 | `/admin/api/permission/add` | POST | 新增功能 |
 | `/admin/api/permission/update` | POST | 修改功能 |
 | `/admin/api/permission/delete` | POST | 删除功能 |
+| `/admin/lookout/source` | GET | 瞭望源管理页面 |
+| `/admin/api/lookout/source/list` | GET | 瞭望源列表 |
+| `/admin/api/lookout/source/add` | POST | 新增瞭望源 |
+| `/admin/api/lookout/source/update` | POST | 修改瞭望源 |
+| `/admin/api/lookout/source/delete` | POST | 删除瞭望源 |
+| `/admin/api/lookout/source/collect` | POST | 手动执行采集 |
+| `/admin/api/lookout/task/list` | GET | 采集任务日志 |
+| `/admin/data/warehouse` | GET | 数据仓库页面 |
+| `/admin/api/data/warehouse/list` | GET | 数据仓库列表 |
 
 ## 数据库表
 
@@ -179,6 +202,9 @@ cnAgentOS/
 | `permissions` | 功能/菜单/权限定义 |
 | `role_permissions` | 角色与功能权限映射 |
 | `user_roles` | 用户与角色映射 |
+| `lookout_sources` | 瞭望源配置 |
+| `lookout_records` | 采集入库结果 |
+| `lookout_tasks` | 采集任务日志 |
 
 ## 安全机制
 
@@ -217,7 +243,7 @@ cnAgentOS/
 | 功能管理 | 已完成 | 树形功能维护、权限树、角色映射 |
 | 后台首页 | 预留 | 后续模块完成后统一完善 |
 | 智能问数 | 待规划 | 后续核心业务 |
-| AI 智能瞭望 | 待规划 | 后续核心业务 |
+| AI 智能瞭望 | 开发中 | 已支持瞭望源管理、手动采集、数据入库 |
 
 ## 后续建议
 
@@ -225,9 +251,9 @@ cnAgentOS/
 - 增加接口级权限校验。
 - 完善注册功能或明确移除注册入口。
 - 增加用户操作日志。
-- 后续业务模块可继续接入数字员工、模型管理、智能瞭望、数据管理等能力。
+- 后续可继续补强自动调度采集、数据清洗规则、任务监控看板与向量库能力。
 
 ---
 
 **文档更新时间**：2026-05-24  
-**文档版本**：v1.3
+**文档版本**：v1.4
