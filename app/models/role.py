@@ -58,14 +58,14 @@ class RoleRepository:
     def create_role(name, display_name, description=None):
         try:
             with get_connection() as conn:
-                conn.execute(
+                cursor = conn.execute(
                     """INSERT INTO roles(name, display_name, description, is_system, status)
                        VALUES(?, ?, ?, 0, 1)""",
                     (name, display_name, description)
                 )
-            return True
+                return cursor.lastrowid
         except Exception:
-            return False
+            return None
 
     @staticmethod
     def update_role(role_id, display_name=None, description=None, status=None):

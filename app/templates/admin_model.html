@@ -1,0 +1,865 @@
+{% extends "admin_base.html" %}
+
+{% block body %}
+<div class="model-console">
+    <div class="model-toolbar">
+        <div class="toolbar-left">
+            <input type="text" id="search-keyword" placeholder="搜索服务 / 厂商 / 模型" class="layui-input">
+            <select id="search-status" class="layui-input">
+                <option value="">全部状态</option>
+                <option value="1">启用</option>
+                <option value="0">禁用</option>
+            </select>
+            <button class="layui-btn" id="btn-search"><i class="fas fa-search"></i> 搜索</button>
+        </div>
+        <button class="layui-btn layui-btn-normal" id="btn-add"><i class="fas fa-plus"></i> 新增模型</button>
+    </div>
+
+    <div class="model-stats" id="stats-panel">
+        <div class="metric-card">
+            <span>Token 总量</span>
+            <strong id="stat-total">0</strong>
+        </div>
+        <div class="metric-card accent-cyan">
+            <span>调用次数</span>
+            <strong id="stat-calls">0</strong>
+        </div>
+        <div class="metric-card accent-gold">
+            <span>成功率</span>
+            <strong id="stat-rate">0%</strong>
+        </div>
+        <div class="metric-card accent-green">
+            <span>平均延迟</span>
+            <strong id="stat-latency">0ms</strong>
+        </div>
+    </div>
+
+    <div class="token-visual" id="token-visual"></div>
+
+    <div class="model-grid" id="model-grid"></div>
+    <div id="model-page" class="model-page"></div>
+</div>
+
+<div id="model-form-dialog" style="display:none;">
+    <form class="layui-form model-form" id="model-form" lay-filter="model-form">
+        {% module xsrf_form_html() %}
+        <input type="hidden" name="id" id="form-id">
+        <div class="form-grid">
+            <div class="layui-form-item">
+                <label class="layui-form-label"><i class="required">*</i>服务名称</label>
+                <div class="layui-input-block">
+                    <input type="text" name="name" id="form-name" class="layui-input" lay-verify="required" placeholder="如：DeepSeek V3">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label"><i class="required">*</i>服务商</label>
+                <div class="layui-input-block">
+                    <input type="text" name="provider" id="form-provider" class="layui-input" lay-verify="required" placeholder="如：AIToolCore">
+                </div>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label"><i class="required">*</i>接口地址</label>
+            <div class="layui-input-block">
+                <input type="text" name="endpoint_url" id="form-endpoint" class="layui-input" lay-verify="required" placeholder="https://aigc-api.aitoolcore.com/api/v1/chat/completions">
+            </div>
+        </div>
+        <div class="form-grid">
+            <div class="layui-form-item">
+                <label class="layui-form-label"><i class="required">*</i>API Key</label>
+                <div class="layui-input-block">
+                    <input type="password" name="api_key" id="form-api-key" class="layui-input" placeholder="新增时必填，编辑时留空不修改" autocomplete="new-password">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label"><i class="required">*</i>模型名称</label>
+                <div class="layui-input-block">
+                    <input type="text" name="model_name" id="form-model-name" class="layui-input" lay-verify="required" placeholder="如：deepseek-v3">
+                </div>
+            </div>
+        </div>
+        <div class="form-grid">
+            <div class="layui-form-item">
+                <label class="layui-form-label">Temperature</label>
+                <div class="layui-input-block">
+                    <input type="number" step="0.1" min="0" max="2" name="temperature" id="form-temperature" class="layui-input" value="0.7">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">Max Tokens</label>
+                <div class="layui-input-block">
+                    <input type="number" min="1" name="max_tokens" id="form-max-tokens" class="layui-input" value="1024">
+                </div>
+            </div>
+        </div>
+        <div class="switch-row">
+            <input type="checkbox" name="stream_enabled" id="form-stream" lay-skin="switch" lay-text="流式|关闭" value="1" checked>
+            <input type="checkbox" name="is_default" id="form-default" lay-skin="switch" lay-text="默认|普通" value="1">
+            <input type="checkbox" name="status" id="form-status" lay-skin="switch" lay-text="启用|禁用" value="1" checked>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">备注</label>
+            <div class="layui-input-block">
+                <textarea name="remark" id="form-remark" class="layui-textarea" rows="3" placeholder="接口用途、额度、适用场景等"></textarea>
+            </div>
+        </div>
+        <div class="dialog-actions">
+            <button class="layui-btn layui-btn-normal" lay-submit lay-filter="model-save">保存</button>
+            <button type="button" class="layui-btn layui-btn-primary btn-close-dialog">取消</button>
+        </div>
+    </form>
+</div>
+
+<div id="test-dialog" style="display:none;">
+    <div class="test-panel">
+        <div class="test-model-name" id="test-model-name"></div>
+        <textarea id="test-message" class="layui-textarea" rows="4" placeholder="输入一句测试消息，例如：你好，请用一句话介绍你自己。"></textarea>
+        <div class="test-actions">
+            <input type="checkbox" id="test-stream" title="SSE 流式响应" lay-skin="primary" checked>
+            <button class="layui-btn layui-btn-normal" id="btn-send-test"><i class="fas fa-paper-plane"></i> 发送测试</button>
+        </div>
+        <div class="test-output" id="test-output"></div>
+    </div>
+</div>
+{% end %}
+
+{% block scripts %}
+<script>
+layui.use(['form', 'layer', 'jquery', 'laypage'], function(){
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.jquery;
+    var laypage = layui.laypage;
+    var currentPage = 1;
+    var pageSize = 6;
+    var currentTestService = null;
+    var currentEventSource = null;
+
+    var $modelMenu = $('.sidebar-menu li:has(a:contains("模型引擎"))');
+    if(!$modelMenu.length){
+        $modelMenu = $('.sidebar-menu li:has(a:contains("模型管理"))');
+    }
+    $('.sidebar-menu li').removeClass('active');
+    $modelMenu.addClass('active').find('.submenu').show();
+    $modelMenu.find('a:contains("模型服务")').parent().addClass('active');
+
+    loadModels();
+    loadStats();
+
+    $('#btn-search').on('click', function(){
+        currentPage = 1;
+        loadModels();
+    });
+
+    $('#search-keyword').on('keyup', function(e){
+        if(e.keyCode === 13){
+            $('#btn-search').click();
+        }
+    });
+
+    $('#btn-add').on('click', function(){
+        resetForm();
+        layer.open({
+            type: 1,
+            title: '<i class="fas fa-plus-circle"></i> 新增模型服务',
+            area: ['760px', '640px'],
+            skin: 'layui-layer-admin',
+            content: $('#model-form-dialog')
+        });
+    });
+
+    $(document).on('click', '.btn-close-dialog', function(){
+        layer.closeAll();
+    });
+
+    $(document).on('click', '.btn-edit', function(){
+        var id = $(this).data('id');
+        $.get('/admin/api/model/detail', {id: id}, function(res){
+            if(res.code !== 0){
+                layer.msg(res.msg, {icon: 2});
+                return;
+            }
+            fillForm(res.data);
+            layer.open({
+                type: 1,
+                title: '<i class="fas fa-edit"></i> 编辑模型服务',
+                area: ['760px', '640px'],
+                skin: 'layui-layer-admin',
+                content: $('#model-form-dialog')
+            });
+        });
+    });
+
+    $(document).on('click', '.btn-delete', function(){
+        var id = $(this).data('id');
+        var name = $(this).data('name');
+        layer.confirm('确定删除模型服务 <strong>' + escapeHtml(name) + '</strong> 吗？<br><span style="color:#999;font-size:12px;">删除后会同步清理该服务的调用日志。</span>', {
+            icon: 3,
+            title: '删除确认',
+            btn: ['确定删除', '取消'],
+            yes: function(index){
+                $.post('/admin/api/model/delete', {id: id}, function(res){
+                    if(res.code === 0){
+                        layer.msg(res.msg, {icon: 1});
+                        loadModels();
+                        loadStats();
+                    } else {
+                        layer.msg(res.msg, {icon: 2});
+                    }
+                });
+                layer.close(index);
+            }
+        });
+    });
+
+    $(document).on('click', '.btn-default', function(){
+        $.post('/admin/api/model/default', {id: $(this).data('id')}, function(res){
+            if(res.code === 0){
+                layer.msg(res.msg, {icon: 1});
+                loadModels();
+            } else {
+                layer.msg(res.msg, {icon: 2});
+            }
+        });
+    });
+
+    $(document).on('click', '.btn-test', function(){
+        currentTestService = $(this).data('id');
+        $('#test-model-name').text($(this).data('name') + ' / ' + $(this).data('model'));
+        $('#test-message').val('你好，请用一句话介绍你自己。');
+        $('#test-output').html('');
+        $('#test-stream').prop('checked', true);
+        form.render('checkbox');
+        layer.open({
+            type: 1,
+            title: '<i class="fas fa-comments"></i> 对话测试',
+            area: ['720px', '620px'],
+            skin: 'layui-layer-admin',
+            content: $('#test-dialog'),
+            end: function(){
+                if(currentEventSource){
+                    currentEventSource.close();
+                    currentEventSource = null;
+                }
+            }
+        });
+    });
+
+    $('#btn-send-test').on('click', function(){
+        var message = $('#test-message').val();
+        if(!message){
+            layer.msg('请输入测试消息', {icon: 0});
+            return;
+        }
+        $('#test-output').html('<div class="typing">模型响应中...</div>');
+        if($('#test-stream').prop('checked')){
+            runStreamTest(currentTestService, message);
+        } else {
+            $.post('/admin/api/model/test', {service_id: currentTestService, message: message}, function(res){
+                if(res.code === 0){
+                    $('#test-output').html('<div class="answer-text"></div><div class="answer-meta">Token ' + res.data.total_tokens + ' · 延迟 ' + res.data.latency_ms + 'ms</div>');
+                    $('#test-output .answer-text').text(res.data.content || '(空响应)');
+                    loadModels();
+                    loadStats();
+                } else {
+                    $('#test-output').html('<div class="answer-error">' + escapeHtml(res.msg) + '</div>');
+                    loadStats();
+                }
+            });
+        }
+    });
+
+    form.on('submit(model-save)', function(data){
+        var formData = data.field;
+        formData.stream_enabled = formData.stream_enabled ? 1 : 0;
+        formData.is_default = formData.is_default ? 1 : 0;
+        formData.status = formData.status ? 1 : 0;
+        var url = formData.id ? '/admin/api/model/update' : '/admin/api/model/add';
+        $.post(url, formData, function(res){
+            if(res.code === 0){
+                layer.msg(res.msg, {icon: 1});
+                layer.closeAll();
+                loadModels();
+                loadStats();
+            } else {
+                layer.msg(res.msg, {icon: 2});
+            }
+        });
+        return false;
+    });
+
+    function loadModels(){
+        $('#model-grid').html('<div class="grid-loading">加载模型服务...</div>');
+        $.get('/admin/api/model/list', {
+            page: currentPage,
+            limit: pageSize,
+            keyword: $('#search-keyword').val(),
+            status: $('#search-status').val()
+        }, function(res){
+            if(res.code !== 0){
+                $('#model-grid').html('<div class="grid-empty">加载失败</div>');
+                return;
+            }
+            renderCards(res.data.list || []);
+            laypage.render({
+                elem: 'model-page',
+                count: res.data.total || 0,
+                limit: pageSize,
+                curr: currentPage,
+                layout: ['count', 'prev', 'page', 'next', 'skip'],
+                jump: function(obj, first){
+                    if(!first){
+                        currentPage = obj.curr;
+                        loadModels();
+                    }
+                }
+            });
+        });
+    }
+
+    function renderCards(list){
+        if(!list.length){
+            $('#model-grid').html('<div class="grid-empty"><i class="fas fa-cubes"></i><span>暂无模型服务</span></div>');
+            return;
+        }
+        var html = '';
+        $.each(list, function(i, item){
+            var statusClass = item.status === 1 ? 'online' : 'offline';
+            var statusText = item.status === 1 ? '启用' : '禁用';
+            html += '<div class="model-card ' + (item.is_default ? 'is-default' : '') + '">';
+            html += '  <div class="card-head">';
+            html += '    <div><div class="model-name">' + escapeHtml(item.name) + '</div><div class="model-provider">' + escapeHtml(item.provider) + '</div></div>';
+            html += '    <span class="status-pill ' + statusClass + '">' + statusText + '</span>';
+            html += '  </div>';
+            html += '  <div class="model-chip"><i class="fas fa-microchip"></i>' + escapeHtml(item.model_name) + '</div>';
+            html += '  <div class="endpoint" title="' + escapeHtml(item.endpoint_url) + '">' + escapeHtml(item.endpoint_url) + '</div>';
+            html += '  <div class="card-metrics">';
+            html += '    <div><span>Token</span><strong>' + formatNumber(item.total_tokens || 0) + '</strong></div>';
+            html += '    <div><span>调用</span><strong>' + formatNumber(item.call_count || 0) + '</strong></div>';
+            html += '    <div><span>成功率</span><strong>' + (item.success_rate || 0) + '%</strong></div>';
+            html += '  </div>';
+            html += '  <div class="card-flags">';
+            html += item.stream_enabled ? '<span><i class="fas fa-bolt"></i> SSE</span>' : '<span class="muted">非流式</span>';
+            html += item.is_default ? '<span class="default-flag"><i class="fas fa-star"></i> 系统默认</span>' : '<span class="muted">普通模型</span>';
+            html += '  </div>';
+            html += '  <div class="card-actions">';
+            html += '    <button class="layui-btn layui-btn-xs btn-test" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '" data-model="' + escapeHtml(item.model_name) + '"><i class="fas fa-comments"></i> 测试</button>';
+            html += '    <button class="layui-btn layui-btn-normal layui-btn-xs btn-edit" data-id="' + item.id + '"><i class="fas fa-edit"></i> 编辑</button>';
+            html += '    <button class="layui-btn layui-btn-warm layui-btn-xs btn-default" data-id="' + item.id + '"><i class="fas fa-star"></i> 默认</button>';
+            html += '    <button class="layui-btn layui-btn-danger layui-btn-xs btn-delete" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '"><i class="fas fa-trash"></i> 删除</button>';
+            html += '  </div>';
+            html += '</div>';
+        });
+        $('#model-grid').html(html);
+    }
+
+    function loadStats(){
+        $.get('/admin/api/model/stats', {days: 7}, function(res){
+            if(res.code !== 0){
+                return;
+            }
+            var d = res.data;
+            $('#stat-total').text(formatNumber(d.total_tokens || 0));
+            $('#stat-calls').text(formatNumber(d.call_count || 0));
+            $('#stat-rate').text((d.success_rate || 0) + '%');
+            $('#stat-latency').text((d.avg_latency || 0) + 'ms');
+            renderTokenVisual(d.models || []);
+        });
+    }
+
+    function renderTokenVisual(models){
+        if(!models.length){
+            $('#token-visual').html('<div class="token-empty">暂无 token 调用数据，完成一次对话测试后这里会生成统计。</div>');
+            return;
+        }
+        var max = 1;
+        $.each(models, function(i, item){ max = Math.max(max, item.total_tokens || 0); });
+        var html = '<div class="token-title"><i class="fas fa-chart-line"></i> Token 消耗排行</div>';
+        $.each(models, function(i, item){
+            var width = Math.max(4, Math.round((item.total_tokens || 0) * 100 / max));
+            html += '<div class="token-row">';
+            html += '<span>' + escapeHtml(item.service_name || item.model_name || '-') + '</span>';
+            html += '<div class="token-bar"><i style="width:' + width + '%"></i></div>';
+            html += '<strong>' + formatNumber(item.total_tokens || 0) + '</strong>';
+            html += '</div>';
+        });
+        $('#token-visual').html(html);
+    }
+
+    function resetForm(){
+        $('#model-form')[0].reset();
+        $('#form-id').val('');
+        $('#form-provider').val('AIToolCore');
+        $('#form-endpoint').val('https://aigc-api.aitoolcore.com/api/v1/chat/completions');
+        $('#form-model-name').val('deepseek-v3');
+        $('#form-temperature').val('0.7');
+        $('#form-max-tokens').val('1024');
+        $('#form-stream').prop('checked', true);
+        $('#form-status').prop('checked', true);
+        $('#form-default').prop('checked', false);
+        $('#form-api-key').attr('placeholder', '请输入 API Key');
+        form.render();
+    }
+
+    function fillForm(data){
+        $('#model-form')[0].reset();
+        $('#form-id').val(data.id);
+        $('#form-name').val(data.name);
+        $('#form-provider').val(data.provider);
+        $('#form-endpoint').val(data.endpoint_url);
+        $('#form-api-key').val('').attr('placeholder', data.api_key_masked ? '已配置：' + data.api_key_masked + '，留空不修改' : '留空不修改');
+        $('#form-model-name').val(data.model_name);
+        $('#form-temperature').val(data.temperature);
+        $('#form-max-tokens').val(data.max_tokens);
+        $('#form-stream').prop('checked', data.stream_enabled === 1);
+        $('#form-default').prop('checked', data.is_default === 1);
+        $('#form-status').prop('checked', data.status === 1);
+        $('#form-remark').val(data.remark || '');
+        form.render();
+    }
+
+    function runStreamTest(serviceId, message){
+        if(currentEventSource){
+            currentEventSource.close();
+        }
+        var output = '';
+        $('#test-output').html('<div class="answer-text"></div><div class="answer-meta">SSE streaming...</div>');
+        currentEventSource = new EventSource('/admin/api/model/test-stream?service_id=' + encodeURIComponent(serviceId) + '&message=' + encodeURIComponent(message));
+        currentEventSource.onmessage = function(event){
+            try {
+                var data = JSON.parse(event.data);
+                output += data.delta || '';
+                $('#test-output .answer-text').text(output);
+            } catch(e) {}
+        };
+        currentEventSource.addEventListener('summary', function(event){
+            try {
+                var data = JSON.parse(event.data);
+                $('#test-output .answer-meta').text('Token ' + data.total_tokens + ' · 延迟 ' + data.latency_ms + 'ms');
+            } catch(e) {}
+        });
+        currentEventSource.addEventListener('error', function(event){
+            $('#test-output').html('<div class="answer-error">流式调用失败或连接中断</div>');
+            currentEventSource.close();
+            currentEventSource = null;
+            loadStats();
+        });
+        currentEventSource.addEventListener('done', function(){
+            currentEventSource.close();
+            currentEventSource = null;
+            loadModels();
+            loadStats();
+        });
+    }
+
+    function formatNumber(value){
+        return Number(value || 0).toLocaleString();
+    }
+
+    function escapeHtml(value){
+        return String(value || '').replace(/[&<>"']/g, function(ch){
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+        });
+    }
+});
+</script>
+
+<style>
+.model-console {
+    padding: 4px 0 24px;
+}
+
+.model-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding: 16px 18px;
+    background: #ffffff;
+    border: 1px solid #e9edf4;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(20, 36, 64, 0.06);
+}
+
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.toolbar-left .layui-input {
+    width: 240px;
+}
+
+#search-status {
+    width: 120px;
+    height: 38px;
+}
+
+.model-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.metric-card {
+    position: relative;
+    min-height: 86px;
+    padding: 16px;
+    overflow: hidden;
+    color: #f8fbff;
+    background: linear-gradient(135deg, #17233c 0%, #244b7a 100%);
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(21, 44, 76, 0.18);
+}
+
+.metric-card:after {
+    content: "";
+    position: absolute;
+    right: -18px;
+    top: -26px;
+    width: 88px;
+    height: 88px;
+    border: 16px solid rgba(255,255,255,0.08);
+    border-radius: 50%;
+}
+
+.metric-card span {
+    display: block;
+    color: rgba(255,255,255,0.72);
+    font-size: 13px;
+}
+
+.metric-card strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 28px;
+    letter-spacing: 0;
+}
+
+.metric-card.accent-cyan {
+    background: linear-gradient(135deg, #11384a 0%, #178ca1 100%);
+}
+
+.metric-card.accent-gold {
+    background: linear-gradient(135deg, #443417 0%, #b9872b 100%);
+}
+
+.metric-card.accent-green {
+    background: linear-gradient(135deg, #153b2f 0%, #2f9162 100%);
+}
+
+.token-visual {
+    margin-bottom: 18px;
+    padding: 16px 18px;
+    min-height: 68px;
+    background: #ffffff;
+    border: 1px solid #e9edf4;
+    border-radius: 6px;
+}
+
+.token-title {
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #26364d;
+}
+
+.token-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 90px;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0;
+    color: #5e6b7d;
+}
+
+.token-bar {
+    height: 9px;
+    overflow: hidden;
+    background: #eef2f8;
+    border-radius: 999px;
+}
+
+.token-bar i {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #12b8a6, #3777e3, #d99b31);
+    border-radius: 999px;
+}
+
+.token-row strong {
+    color: #26364d;
+    text-align: right;
+}
+
+.token-empty {
+    color: #8a96a8;
+}
+
+.model-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    min-height: 260px;
+}
+
+.model-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 286px;
+    padding: 18px;
+    background: #ffffff;
+    border: 1px solid #e8edf6;
+    border-radius: 8px;
+    box-shadow: 0 10px 26px rgba(20, 36, 64, 0.08);
+}
+
+.model-card.is-default {
+    border-color: #2f8dff;
+    box-shadow: 0 14px 32px rgba(47, 141, 255, 0.16);
+}
+
+.card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.model-name {
+    color: #243148;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.model-provider {
+    margin-top: 4px;
+    color: #7d8898;
+}
+
+.status-pill {
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.status-pill.online {
+    color: #11815f;
+    background: #e9f8f2;
+}
+
+.status-pill.offline {
+    color: #78808d;
+    background: #eef1f5;
+}
+
+.model-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    padding: 7px 10px;
+    color: #2450a7;
+    background: #eef5ff;
+    border-radius: 6px;
+    word-break: break-all;
+}
+
+.endpoint {
+    color: #687489;
+    font-size: 12px;
+    line-height: 1.5;
+    word-break: break-all;
+}
+
+.card-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.card-metrics div {
+    padding: 10px;
+    background: #f7f9fc;
+    border-radius: 6px;
+}
+
+.card-metrics span {
+    display: block;
+    color: #8a96a8;
+    font-size: 12px;
+}
+
+.card-metrics strong {
+    display: block;
+    margin-top: 4px;
+    color: #26364d;
+    font-size: 16px;
+}
+
+.card-flags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.card-flags span {
+    padding: 5px 8px;
+    color: #3b526d;
+    background: #f2f6fb;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.card-flags .default-flag {
+    color: #9a650e;
+    background: #fff5df;
+}
+
+.card-flags .muted {
+    color: #8a96a8;
+}
+
+.card-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: auto;
+}
+
+.grid-empty,
+.grid-loading {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+    flex-direction: column;
+    gap: 8px;
+    color: #8a96a8;
+    background: #fff;
+    border: 1px dashed #d8e0eb;
+    border-radius: 8px;
+}
+
+.model-page {
+    margin-top: 16px;
+    text-align: right;
+}
+
+.model-form {
+    padding: 20px 22px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.model-form .layui-form-label {
+    width: 92px;
+}
+
+.model-form .layui-input-block {
+    margin-left: 122px;
+}
+
+.switch-row {
+    display: flex;
+    gap: 30px;
+    padding: 2px 0 18px 122px;
+}
+
+.dialog-actions {
+    padding-top: 16px;
+    border-top: 1px solid #edf1f6;
+    text-align: right;
+}
+
+.required {
+    color: #ff4d4f;
+    margin-right: 2px;
+}
+
+.test-panel {
+    padding: 20px;
+}
+
+.test-model-name {
+    margin-bottom: 12px;
+    color: #26364d;
+    font-weight: 700;
+}
+
+.test-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 12px 0;
+}
+
+.test-output {
+    min-height: 280px;
+    padding: 16px;
+    color: #dce7ff;
+    background: #121b2d;
+    border: 1px solid #263b5d;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    line-height: 1.7;
+}
+
+.answer-meta {
+    margin-top: 14px;
+    color: #81d8c8;
+    font-size: 12px;
+}
+
+.answer-error {
+    color: #ffb4a8;
+}
+
+.typing {
+    color: #81d8c8;
+}
+
+@media (max-width: 1280px) {
+    .model-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 860px) {
+    .model-toolbar,
+    .toolbar-left,
+    .test-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .toolbar-left .layui-input,
+    #search-status {
+        width: 100%;
+    }
+    .model-stats,
+    .model-grid,
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    .switch-row {
+        padding-left: 0;
+        flex-direction: column;
+        gap: 12px;
+    }
+}
+</style>
+{% end %}

@@ -6,25 +6,21 @@ from app.models.permission import PermissionRepository
 class AdminPermissionHandler(AdminBaseHandler):
     @tornado.web.authenticated
     def get(self):
-        self.render("admin_permission.html", title="权限管理", username=self.current_user)
+        self.render("admin_permission.html", title="功能管理", username=self.current_user)
 
 
 class AdminPermissionListHandler(AdminBaseHandler):
     @tornado.web.authenticated
     def get(self):
-        page = int(self.get_argument("page", 1))
-        limit = int(self.get_argument("limit", 50))
         name = (self.get_argument("name", "") or "").strip()
         category = (self.get_argument("category", "") or "").strip()
 
-        result = PermissionRepository.get_permission_list(
-            page=page,
-            page_size=limit,
+        rows = PermissionRepository.get_permission_flat_tree(
             name=name if name else None,
             category=category if category else None
         )
 
-        for item in result["list"]:
+        for item in rows:
             if item.get("status") == 1:
                 item["status_name"] = "正常"
             else:
@@ -38,8 +34,8 @@ class AdminPermissionListHandler(AdminBaseHandler):
             "code": 0,
             "msg": "成功",
             "data": {
-                "list": result["list"],
-                "total": result["total"]
+                "list": rows,
+                "total": len(rows)
             }
         })
 
@@ -67,8 +63,9 @@ class AdminPermissionAddHandler(AdminBaseHandler):
         url = (self.get_body_argument("url", "") or "").strip() or None
         sort_order = int(self.get_body_argument("sort_order", 0) or 0)
 
-        if not name or not display_name or not code:
-            return self.write({"code": 1, "msg": "名称、显示名称、代码不能为空"})
+        display_name = display_name or name
+        if not name or not code:
+            return self.write({"code": 1, "msg": "功能名称和功能标识不能为空"})
 
         success = PermissionRepository.create_permission(
             name=name,
@@ -114,10 +111,11 @@ class AdminPermissionUpdateHandler(AdminBaseHandler):
         if sort_order is not None:
             sort_order = int(sort_order) if sort_order else 0
         if status is not None:
-            status = int(status) if status else 1
+            status = int(status) if status else 0
 
-        if not name or not display_name or not code:
-            return self.write({"code": 1, "msg": "名称、显示名称、代码不能为空"})
+        display_name = display_name or name
+        if not name or not code:
+            return self.write({"code": 1, "msg": "功能名称和功能标识不能为空"})
 
         success = PermissionRepository.update_permission(
             permission_id=permission_id,

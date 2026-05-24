@@ -4,13 +4,13 @@
 <div class="toolbar">
     <div class="layui-form-item">
         <div class="layui-inline">
-            <input type="text" id="search-name" placeholder="搜索名称/代码" class="layui-input" style="width: 200px;">
+            <input type="text" id="search-name" placeholder="搜索功能名称/标识" class="layui-input" style="width: 220px;">
         </div>
         <div class="layui-inline">
             <select id="search-category" class="layui-input" style="width: 120px; height: 38px;">
                 <option value="">全部分类</option>
-                <option value="group">分组</option>
-                <option value="menu">菜单</option>
+                <option value="group">功能分组</option>
+                <option value="menu">菜单项</option>
             </select>
         </div>
         <div class="layui-inline">
@@ -18,7 +18,7 @@
                 <i class="fas fa-search"></i> 搜索
             </button>
             <button class="layui-btn layui-btn-normal" id="btn-add">
-                <i class="fas fa-plus"></i> 新增功能
+                <i class="fas fa-plus"></i> 新增功能节点
             </button>
         </div>
     </div>
@@ -45,13 +45,13 @@
             <label class="layui-form-label"><i class="required">*</i>功能类型</label>
             <div class="layui-input-block">
                 <select name="category" id="form-category" lay-filter="form-category">
-                    <option value="group">分组</option>
-                    <option value="menu">菜单</option>
+                    <option value="group">功能分组</option>
+                    <option value="menu">菜单项</option>
                 </select>
             </div>
         </div>
         <div class="layui-form-item" id="parent-item">
-            <label class="layui-form-label">所属分组</label>
+            <label class="layui-form-label">父级节点</label>
             <div class="layui-input-block">
                 <select name="parent_id" id="form-parent">
                     <option value="0">无（顶级）</option>
@@ -64,16 +64,11 @@
                 <input type="text" name="name" id="form-name" placeholder="请输入功能名称" class="layui-input" lay-verify="required" autocomplete="off">
             </div>
         </div>
+        <input type="hidden" name="display_name" id="form-display-name">
         <div class="layui-form-item">
-            <label class="layui-form-label"><i class="required">*</i>显示名称</label>
+            <label class="layui-form-label"><i class="required">*</i>功能标识</label>
             <div class="layui-input-block">
-                <input type="text" name="display_name" id="form-display-name" placeholder="请输入显示名称" class="layui-input" lay-verify="required" autocomplete="off">
-            </div>
-        </div>
-        <div class="layui-form-item">
-            <label class="layui-form-label"><i class="required">*</i>功能代码</label>
-            <div class="layui-input-block">
-                <input type="text" name="code" id="form-code" placeholder="请输入功能代码（英文唯一）" class="layui-input" lay-verify="required" autocomplete="off">
+                <input type="text" name="code" id="form-code" placeholder="请输入功能标识（英文唯一）" class="layui-input" lay-verify="required" autocomplete="off">
             </div>
         </div>
         <div class="layui-form-item" id="icon-item">
@@ -83,13 +78,13 @@
             </div>
         </div>
         <div class="layui-form-item" id="url-item" style="display:none;">
-            <label class="layui-form-label">URL地址</label>
+            <label class="layui-form-label">访问路径</label>
             <div class="layui-input-block">
                 <input type="text" name="url" id="form-url" placeholder="如：/admin/user" class="layui-input" autocomplete="off">
             </div>
         </div>
         <div class="layui-form-item">
-            <label class="layui-form-label">排序</label>
+            <label class="layui-form-label">排序号</label>
             <div class="layui-input-block">
                 <input type="number" name="sort_order" id="form-sort-order" value="0" class="layui-input" style="width: 120px;">
             </div>
@@ -112,7 +107,7 @@
         var layer = layui.layer;
         var $ = layui.jquery;
 
-        var $userMenu = $('.sidebar-menu li:has(a:contains("权限管理"))');
+        var $userMenu = $('.sidebar-menu li:has(a:contains("系统管理"))');
         if(!$userMenu.hasClass('active')){
             $('.sidebar-menu li').removeClass('active');
             $userMenu.addClass('active');
@@ -128,16 +123,15 @@
                 limits: [20, 50, 100]
             },
             cols: [[
-                {field: 'id', title: 'ID', width: 60, sort: true},
-                {field: 'name', title: '功能名称', width: 150},
-                {field: 'display_name', title: '显示名称', width: 150},
-                {field: 'code', title: '代码', width: 150},
-                {field: 'category_name', title: '类型', width: 80},
-                {field: 'icon', title: '图标', width: 150, templet: function(d){
-                    return d.icon ? '<i class="' + d.icon + '"></i> ' + d.icon : '-';
+                {field: 'name', title: '功能名称', minWidth: 220, templet: function(d){
+                    var padding = (d.level || 0) * 24;
+                    var icon = d.category === 'group' ? 'fas fa-folder' : (d.icon || 'fas fa-link');
+                    return '<span style="padding-left:' + padding + 'px;"><i class="' + icon + '" style="margin-right:6px;color:#1e9fff;"></i>' + d.name + '</span>';
                 }},
-                {field: 'url', title: 'URL', width: 180},
-                {field: 'sort_order', title: '排序', width: 70},
+                {field: 'code', title: '功能标识', width: 150},
+                {field: 'category_name', title: '类型', width: 100},
+                {field: 'url', title: '访问路径', width: 200, templet: function(d){ return d.url || '-'; }},
+                {field: 'sort_order', title: '排序号', width: 80},
                 {field: 'status_name', title: '状态', width: 80},
                 {title: '操作', width: 180, toolbar: '#toolbar-permission', fixed: 'right'}
             ]],
@@ -168,7 +162,7 @@
             updateFormFields();
             layer.open({
                 type: 1,
-                title: '<i class="fas fa-plus-circle" style="margin-right:8px;"></i>新增功能',
+                title: '<i class="fas fa-plus-circle" style="margin-right:8px;"></i>新增功能节点',
                 area: ['520px', '480px'],
                 skin: 'layui-layer-admin',
                 content: $('#permission-form-dialog')
@@ -181,9 +175,8 @@
                 loadParentPermissions(0);
                 $('#parent-item').show();
             } else {
-                $('#form-parent').html('<option value="0">无（顶级）</option>');
-                form.render('select');
-                $('#parent-item').hide();
+                loadParentPermissions(0);
+                $('#parent-item').show();
             }
         });
 
@@ -192,7 +185,7 @@
             if(category === 'group'){
                 $('#icon-item').show();
                 $('#url-item').hide();
-                $('#parent-item').hide();
+                $('#parent-item').show();
             } else {
                 $('#icon-item').show();
                 $('#url-item').show();
@@ -204,9 +197,16 @@
             $.get('/admin/api/permission/tree', function(res){
                 if(res.code === 0){
                     var options = '<option value="0">无（顶级）</option>';
-                    $.each(res.data, function(i, group){
-                        options += '<option value="' + group.id + '">' + group.name + '</option>';
-                    });
+                    function appendOptions(nodes, level){
+                        $.each(nodes, function(i, node){
+                            var prefix = new Array(level + 1).join('　');
+                            options += '<option value="' + node.id + '">' + prefix + node.name + '</option>';
+                            if(node.children && node.children.length > 0){
+                                appendOptions(node.children, level + 1);
+                            }
+                        });
+                    }
+                    appendOptions(res.data, 0);
                     $('#form-parent').html(options);
                     if(selectedId){
                         $('#form-parent').val(selectedId);
@@ -266,6 +266,7 @@
 
         form.on('submit(form-save)', function(data){
             var formData = data.field;
+            formData.display_name = formData.name;
             var url = formData.id ? '/admin/api/permission/update' : '/admin/api/permission/add';
 
             $.post(url, formData, function(res){

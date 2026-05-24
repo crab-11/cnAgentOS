@@ -42,21 +42,21 @@
         {% module xsrf_form_html() %}
         <input type="hidden" name="id" id="form-id">
         <div class="layui-form-item">
-            <label class="layui-form-label"><i class="required">*</i>角色代码</label>
+            <label class="layui-form-label"><i class="required">*</i>角色标识</label>
             <div class="layui-input-block">
-                <input type="text" name="name" id="form-name" placeholder="请输入角色代码（英文唯一）" class="layui-input" lay-verify="required|username" autocomplete="off">
+                <input type="text" name="name" id="form-name" placeholder="请输入角色标识（英文唯一）" class="layui-input" lay-verify="required|username" autocomplete="off">
             </div>
         </div>
         <div class="layui-form-item">
-            <label class="layui-form-label"><i class="required">*</i>显示名称</label>
+            <label class="layui-form-label"><i class="required">*</i>角色名称</label>
             <div class="layui-input-block">
-                <input type="text" name="display_name" id="form-display-name" placeholder="请输入显示名称" class="layui-input" lay-verify="required" autocomplete="off">
+                <input type="text" name="display_name" id="form-display-name" placeholder="请输入角色名称" class="layui-input" lay-verify="required" autocomplete="off">
             </div>
         </div>
         <div class="layui-form-item">
-            <label class="layui-form-label">角色描述</label>
+            <label class="layui-form-label">备注</label>
             <div class="layui-input-block">
-                <textarea name="description" id="form-description" placeholder="请输入角色描述（选填）" class="layui-textarea" rows="2"></textarea>
+                <textarea name="description" id="form-description" placeholder="请输入备注（选填）" class="layui-textarea" rows="2"></textarea>
             </div>
         </div>
         <div class="layui-form-item" id="status-item" style="display:none;">
@@ -64,6 +64,10 @@
             <div class="layui-input-block">
                 <input type="checkbox" name="status" lay-skin="switch" lay-text="正常|禁用" value="1" checked>
             </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">功能权限</label>
+            <div class="layui-input-block" id="role-permission-tree" style="max-height: 220px; overflow-y: auto; border: 1px solid #e6e6e6; padding: 10px; border-radius: 4px;"></div>
         </div>
         <div class="layui-form-item" style="margin-bottom: 0; border-top: 1px solid #e6e6e6; padding-top: 15px; margin-top: 5px;">
             <div class="layui-input-block" style="margin-left: 0;">
@@ -106,7 +110,7 @@
         var layer = layui.layer;
         var $ = layui.jquery;
 
-        var $userMenu = $('.sidebar-menu li:has(a:contains("权限管理"))');
+        var $userMenu = $('.sidebar-menu li:has(a:contains("系统管理"))');
         if(!$userMenu.hasClass('active')){
             $('.sidebar-menu li').removeClass('active');
             $userMenu.addClass('active');
@@ -123,13 +127,12 @@
             },
             cols: [[
                 {field: 'id', title: 'ID', width: 60, sort: true},
-                {field: 'name', title: '角色代码', width: 120},
-                {field: 'display_name', title: '显示名称', width: 150},
-                {field: 'description', title: '描述', width: 200},
-                {field: 'is_system_name', title: '系统角色', width: 90},
-                {field: 'permission_count', title: '权限数', width: 80},
+                {field: 'display_name', title: '角色名称', width: 150},
+                {field: 'name', title: '角色标识', width: 120},
                 {field: 'status_name', title: '状态', width: 80},
                 {field: 'create_at', title: '创建时间', width: 180},
+                {field: 'description', title: '备注', minWidth: 200},
+                {field: 'permission_count', title: '权限数', width: 80},
                 {title: '操作', width: 260, toolbar: '#toolbar-role', fixed: 'right'}
             ]],
             parseData: function(res){
@@ -156,11 +159,12 @@
             $('#form-name').attr('readonly', false);
             $('input[name="status"]').prop('checked', true);
             $('#status-item').hide();
+            loadRoleFormPermissions([]);
             form.render();
             layer.open({
                 type: 1,
                 title: '<i class="fas fa-plus-circle" style="margin-right:8px;"></i>新增角色',
-                area: ['520px', '380px'],
+                area: ['560px', '620px'],
                 skin: 'layui-layer-admin',
                 content: $('#role-form-dialog')
             });
@@ -179,13 +183,16 @@
                 $('#form-description').val(data.description || '');
                 $('#status-item').show();
                 $('input[name="status"]').prop('checked', data.status === 1);
-                form.render();
-                layer.open({
-                    type: 1,
-                    title: '<i class="fas fa-edit" style="margin-right:8px;"></i>编辑角色',
-                    area: ['520px', '380px'],
-                    skin: 'layui-layer-admin',
-                    content: $('#role-form-dialog')
+                $.get('/admin/api/role/permissions?role_id=' + data.id, function(resp){
+                    loadRoleFormPermissions(resp.code === 0 ? resp.data.permission_ids : []);
+                    form.render();
+                    layer.open({
+                        type: 1,
+                        title: '<i class="fas fa-edit" style="margin-right:8px;"></i>编辑角色',
+                        area: ['560px', '620px'],
+                        skin: 'layui-layer-admin',
+                        content: $('#role-form-dialog')
+                    });
                 });
             } else if(obj.event === 'permission'){
                 loadRolePermissions(data);
@@ -300,6 +307,36 @@
             });
         }
 
+        function loadRoleFormPermissions(selectedIds){
+            selectedIds = selectedIds || [];
+            $('#role-permission-tree').html('<div style="color:#999;">加载中...</div>');
+            $.get('/admin/api/role/all-permissions', function(res){
+                if(res.code !== 0){
+                    $('#role-permission-tree').html('<div style="color:#ff0000;">权限加载失败</div>');
+                    return;
+                }
+                var html = '';
+                $.each(res.data, function(i, group){
+                    var groupChecked = selectedIds.indexOf(group.id) >= 0 ? ' checked' : '';
+                    html += '<div class="perm-group" style="margin-bottom:12px;">';
+                    html += '<div class="perm-group-title" style="font-weight:600;margin-bottom:6px;">';
+                    html += '<label><input type="checkbox" class="role-perm-check role-perm-group" data-group="' + group.id + '" value="' + group.id + '" lay-skin="primary"' + groupChecked + '> ' + group.display_name + '</label>';
+                    html += '</div>';
+                    if(group.children && group.children.length > 0){
+                        html += '<div style="padding-left:16px;">';
+                        $.each(group.children, function(j, menu){
+                            var checked = selectedIds.indexOf(menu.id) >= 0 ? ' checked' : '';
+                            html += '<label style="display:inline-block;min-width:120px;margin:0 12px 8px 0;"><input type="checkbox" class="role-perm-check role-perm-menu" data-group="' + group.id + '" value="' + menu.id + '" lay-skin="primary"' + checked + '> ' + menu.display_name + '</label>';
+                        });
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+                $('#role-permission-tree').html(html || '<div style="color:#999;">暂无功能权限</div>');
+                form.render('checkbox');
+            });
+        }
+
         form.on('submit(form-perm-save)', function(data){
             var formData = data.field;
             var permissionIds = [];
@@ -326,6 +363,11 @@
         form.on('submit(form-save)', function(data){
             var formData = data.field;
             var url = formData.id ? '/admin/api/role/update' : '/admin/api/role/add';
+            var permissionIds = [];
+            $('#role-permission-tree .role-perm-check:checked').each(function(){
+                permissionIds.push($(this).val());
+            });
+            formData.permission_ids = permissionIds.join(',');
 
             $.post(url, formData, function(res){
                 if(res.code === 0){

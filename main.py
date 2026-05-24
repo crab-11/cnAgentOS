@@ -42,6 +42,18 @@ from app.controllers.admin_role import (
     AdminRolePermissionsHandler,
     AdminRoleAllPermissionsHandler
 )
+from app.controllers.admin_model import (
+    AdminModelHandler,
+    AdminModelListHandler,
+    AdminModelDetailHandler,
+    AdminModelAddHandler,
+    AdminModelUpdateHandler,
+    AdminModelDeleteHandler,
+    AdminModelDefaultHandler,
+    AdminModelStatsHandler,
+    AdminModelTestHandler,
+    AdminModelStreamTestHandler
+)
 
 # 引入数据库初始化方法
 from app.models.db import init_db
@@ -104,6 +116,18 @@ def make_app():
         (r"/admin/api/role/delete", AdminRoleDeleteHandler),
         (r"/admin/api/role/permissions", AdminRolePermissionsHandler),
         (r"/admin/api/role/all-permissions", AdminRoleAllPermissionsHandler),
+
+        # 模型引擎路由
+        (r"/admin/model", AdminModelHandler),
+        (r"/admin/api/model/list", AdminModelListHandler),
+        (r"/admin/api/model/detail", AdminModelDetailHandler),
+        (r"/admin/api/model/add", AdminModelAddHandler),
+        (r"/admin/api/model/update", AdminModelUpdateHandler),
+        (r"/admin/api/model/delete", AdminModelDeleteHandler),
+        (r"/admin/api/model/default", AdminModelDefaultHandler),
+        (r"/admin/api/model/stats", AdminModelStatsHandler),
+        (r"/admin/api/model/test", AdminModelTestHandler),
+        (r"/admin/api/model/test-stream", AdminModelStreamTestHandler),
     ], **settings)
 
 

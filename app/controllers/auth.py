@@ -31,6 +31,7 @@ class LoginHandler(BaseHandler):
                 error="用户名或密码错误"
             )
 
+        UserRepository.update_last_login(username)
         self.set_secure_cookie("username", username)
         self.redirect("/")
 

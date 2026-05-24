@@ -109,11 +109,19 @@ class PermissionRepository:
     @staticmethod
     def delete_permission(permission_id):
         with get_connection() as conn:
-            rows = conn.execute(
-                "SELECT id FROM permissions WHERE id = ? OR parent_id = ?",
-                (permission_id, permission_id)
-            ).fetchall()
-            permission_ids = [row["id"] for row in rows]
+            permission_ids = []
+            pending = [permission_id]
+
+            while pending:
+                current_id = pending.pop(0)
+                if current_id in permission_ids:
+                    continue
+                permission_ids.append(current_id)
+                rows = conn.execute(
+                    "SELECT id FROM permissions WHERE parent_id = ?",
+                    (current_id,)
+                ).fetchall()
+                pending.extend([row["id"] for row in rows])
 
             if not permission_ids:
                 return False
@@ -141,19 +149,44 @@ class PermissionRepository:
     def get_permission_tree():
         permissions = PermissionRepository.get_all_permissions()
 
-        groups = []
-        menus = []
+        by_parent = {}
+        for item in permissions:
+            item["children"] = []
+            by_parent.setdefault(item.get("parent_id") or 0, []).append(item)
 
-        for p in permissions:
-            if p['category'] == 'group':
-                groups.append(p)
-            else:
-                menus.append(p)
+        def attach(parent_id):
+            nodes = by_parent.get(parent_id, [])
+            for node in nodes:
+                node["children"] = attach(node["id"])
+            return nodes
 
-        for group in groups:
-            group['children'] = [m for m in menus if m['parent_id'] == group['id']]
+        return attach(0)
 
-        return groups
+    @staticmethod
+    def get_permission_flat_tree(name=None, category=None):
+        tree = PermissionRepository.get_permission_tree()
+        result = []
+
+        def matched(node):
+            if name and name not in node.get("name", "") and name not in node.get("display_name", "") and name not in node.get("code", ""):
+                return False
+            if category and node.get("category") != category:
+                return False
+            return True
+
+        def walk(nodes, level=0):
+            for node in nodes:
+                children = node.get("children", [])
+                item = dict(node)
+                item["level"] = level
+                item["has_children"] = len(children) > 0
+                item.pop("children", None)
+                if matched(item):
+                    result.append(item)
+                walk(children, level + 1)
+
+        walk(tree)
+        return result
 
     @staticmethod
     def get_menus_by_parent(parent_id=0):

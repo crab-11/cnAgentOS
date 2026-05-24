@@ -19,11 +19,14 @@ class AdminUserListHandler(AdminBaseHandler):
         page = int(self.get_argument("page", 1))
         limit = int(self.get_argument("limit", 20))
         username = (self.get_argument("username", "") or "").strip()
+        status_arg = (self.get_argument("status", "") or "").strip()
+        status = int(status_arg) if status_arg in ("0", "1") else None
 
         result = UserRepository.get_user_list(
             page=page,
             page_size=limit,
-            username=username if username else None
+            username=username if username else None,
+            status=status
         )
 
         for item in result["list"]:
@@ -48,12 +51,14 @@ class AdminUserAddHandler(AdminBaseHandler):
     @tornado.web.authenticated
     def post(self):
         username = (self.get_body_argument("username", "") or "").strip()
+        nickname = (self.get_body_argument("nickname", "") or "").strip()
+        email = (self.get_body_argument("email", "") or "").strip()
         password = (self.get_body_argument("password", "") or "").strip()
         status = int(self.get_body_argument("status", 0))
         role_id = int(self.get_body_argument("role_id", 0) or 0)
 
-        if not username or not password:
-            return self.write({"code": 1, "msg": "用户名和密码不能为空"})
+        if not username or not nickname or not email or not password:
+            return self.write({"code": 1, "msg": "用户名、昵称、邮箱和密码不能为空"})
 
         if len(username) < 3 or len(username) > 30:
             return self.write({"code": 1, "msg": "用户名长度应在3-30个字符之间"})
@@ -73,6 +78,8 @@ class AdminUserAddHandler(AdminBaseHandler):
 
         success = UserRepository.create_user(
             username=username,
+            nickname=nickname,
+            email=email,
             password=password,
             status=status,
             role_id=role_id
@@ -89,15 +96,14 @@ class AdminUserUpdateHandler(AdminBaseHandler):
     def post(self):
         user_id = int(self.get_body_argument("id", 0))
         username = (self.get_body_argument("username", "") or "").strip()
+        nickname = (self.get_body_argument("nickname", "") or "").strip()
+        email = (self.get_body_argument("email", "") or "").strip()
         password = (self.get_body_argument("password", "") or "").strip()
         status = int(self.get_body_argument("status", 0))
         role_id = int(self.get_body_argument("role_id", 0) or 0)
 
         if not user_id:
             return self.write({"code": 1, "msg": "用户ID无效"})
-
-        if not username:
-            return self.write({"code": 1, "msg": "用户名不能为空"})
 
         current_user = UserRepository.get_user_by_id(user_id)
         if not current_user:
@@ -114,9 +120,13 @@ class AdminUserUpdateHandler(AdminBaseHandler):
                 return self.write({"code": 1, "msg": "admin为系统默认用户，只允许修改密码"})
 
             username = current_user["username"]
+            nickname = current_user["nickname"] or current_user["username"]
+            email = current_user["email"] or "admin@example.com"
             status = current_user["status"]
             role_id = None
         else:
+            if not username or not nickname or not email:
+                return self.write({"code": 1, "msg": "用户名、昵称和邮箱不能为空"})
             if not role_id:
                 return self.write({"code": 1, "msg": "请选择有效角色"})
             role = RoleRepository.get_role_by_id(role_id)
@@ -127,6 +137,8 @@ class AdminUserUpdateHandler(AdminBaseHandler):
             success = UserRepository.update_user(
                 user_id=user_id,
                 username=username,
+                nickname=nickname,
+                email=email,
                 password=update_password,
                 status=status,
                 role_id=role_id

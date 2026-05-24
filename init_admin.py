@@ -17,13 +17,22 @@ def init_admin():
         UserRepository.update_user(
             user_id=user["id"],
             username=admin_username,
+            nickname="系统管理员",
+            email="admin@example.com",
             password=admin_password,
             status=1
         )
         UserRepository.ensure_user_role(admin_username, "admin")
         print(f"管理员账户已存在，已重置为默认密码: {admin_username}")
     else:
-        success = UserRepository.create_user(admin_username, admin_password, role="admin", status=1)
+        success = UserRepository.create_user(
+            admin_username,
+            admin_password,
+            role="admin",
+            status=1,
+            nickname="系统管理员",
+            email="admin@example.com"
+        )
         if success:
             UserRepository.ensure_user_role(admin_username, "admin")
             print(f"管理员账户创建成功!")

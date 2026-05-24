@@ -51,7 +51,7 @@ class UserRepository:
 
     # 创建用户方法
     @staticmethod
-    def create_user(username: str, password: str, role: str = "user", status: int = 1, role_id: int = None) -> bool:
+    def create_user(username: str, password: str, role: str = "user", status: int = 1, role_id: int = None, nickname: str = None, email: str = None) -> bool:
         salt = secrets.token_bytes(16)
         password_hash = _hash_password(password, salt)
 
@@ -65,8 +65,8 @@ class UserRepository:
                 role_code = role_row["name"] if role_row else role
 
                 cursor = conn.execute(
-                    "insert into users(username, password_hash, salt, role, status) values(?, ?, ?, ?, ?)",
-                    (username, password_hash, salt.hex(), role_code, status)
+                    "insert into users(username, nickname, email, password_hash, salt, role, status) values(?, ?, ?, ?, ?, ?, ?)",
+                    (username, nickname, email, password_hash, salt.hex(), role_code, status)
                 )
                 if role_row:
                     UserRepository._set_user_role(conn, cursor.lastrowid, role_row["id"])
@@ -79,7 +79,7 @@ class UserRepository:
     def get_user_by_username(username: str):
         with get_connection() as conn:
             row = conn.execute(
-                "select id, username, password_hash, salt, role, status from users where username = ?",
+                "select id, username, nickname, email, password_hash, salt, role, status, last_login_at from users where username = ?",
                 (username,)
             ).fetchone()
         return row
@@ -90,7 +90,7 @@ class UserRepository:
         with get_connection() as conn:
             row = conn.execute(
                 """
-                SELECT u.id, u.username, u.role, u.status, u.create_at,
+                SELECT u.id, u.username, u.nickname, u.email, u.role, u.status, u.last_login_at, u.create_at,
                        r.id AS role_id, r.name AS role_code, r.display_name AS role_name
                 FROM users u
                 LEFT JOIN (
@@ -119,12 +119,12 @@ class UserRepository:
 
     # 分页获取用户列表
     @staticmethod
-    def get_user_list(page: int = 1, page_size: int = 20, username: str = None):
+    def get_user_list(page: int = 1, page_size: int = 20, username: str = None, status: int = None):
         offset = (page - 1) * page_size
         
         with get_connection() as conn:
             base_select = """
-                SELECT u.id, u.username, u.role, u.status, u.create_at,
+                SELECT u.id, u.username, u.nickname, u.email, u.role, u.status, u.last_login_at, u.create_at,
                        r.id AS role_id, r.name AS role_code, r.display_name AS role_name
                 FROM users u
                 LEFT JOIN (
@@ -134,23 +134,28 @@ class UserRepository:
                 ) ur ON ur.user_id = u.id
                 LEFT JOIN roles r ON r.id = ur.role_id
             """
+            where_clauses = []
+            params = []
+
             if username:
-                rows = conn.execute(
-                    base_select + " WHERE u.username LIKE ? ORDER BY u.id DESC LIMIT ? OFFSET ?",
-                    (f"%{username}%", page_size, offset)
-                ).fetchall()
-                
-                total = conn.execute(
-                    "select count(*) from users where username like ?",
-                    (f"%{username}%",)
-                ).fetchone()[0]
-            else:
-                rows = conn.execute(
-                    base_select + " ORDER BY u.id DESC LIMIT ? OFFSET ?",
-                    (page_size, offset)
-                ).fetchall()
-                
-                total = conn.execute("select count(*) from users").fetchone()[0]
+                where_clauses.append("u.username LIKE ?")
+                params.append(f"%{username}%")
+
+            if status is not None:
+                where_clauses.append("u.status = ?")
+                params.append(status)
+
+            where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+            rows = conn.execute(
+                base_select + where_sql + " ORDER BY u.id DESC LIMIT ? OFFSET ?",
+                params + [page_size, offset]
+            ).fetchall()
+
+            total = conn.execute(
+                "SELECT COUNT(*) FROM users u" + where_sql,
+                params
+            ).fetchone()[0]
         
         return {
             "list": [dict(row) for row in rows],
@@ -159,10 +164,10 @@ class UserRepository:
 
     # 更新用户信息
     @staticmethod
-    def update_user(user_id: int, username: str = None, password: str = None, status: int = None, role_id: int = None) -> bool:
+    def update_user(user_id: int, username: str = None, password: str = None, status: int = None, role_id: int = None, nickname: str = None, email: str = None) -> bool:
         with get_connection() as conn:
             current = conn.execute(
-                "select username, status from users where id = ?",
+                "select username, nickname, email, status from users where id = ?",
                 (user_id,)
             ).fetchone()
             
@@ -170,24 +175,35 @@ class UserRepository:
                 return False
             
             new_username = username if username else current["username"]
+            new_nickname = nickname if nickname is not None else current["nickname"]
+            new_email = email if email is not None else current["email"]
             new_status = status if status is not None else current["status"]
             
             if password:
                 salt = secrets.token_bytes(16)
                 password_hash = _hash_password(password, salt)
                 conn.execute(
-                    "update users set username = ?, password_hash = ?, salt = ?, status = ? where id = ?",
-                    (new_username, password_hash, salt.hex(), new_status, user_id)
+                    "update users set username = ?, nickname = ?, email = ?, password_hash = ?, salt = ?, status = ? where id = ?",
+                    (new_username, new_nickname, new_email, password_hash, salt.hex(), new_status, user_id)
                 )
             else:
                 conn.execute(
-                    "update users set username = ?, status = ? where id = ?",
-                    (new_username, new_status, user_id)
+                    "update users set username = ?, nickname = ?, email = ?, status = ? where id = ?",
+                    (new_username, new_nickname, new_email, new_status, user_id)
                 )
             if role_id is not None:
                 if not UserRepository._set_user_role(conn, user_id, role_id):
                     return False
             return True
+
+    @staticmethod
+    def update_last_login(username: str) -> bool:
+        with get_connection() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET last_login_at = datetime('now') WHERE username = ?",
+                (username,)
+            )
+            return cursor.rowcount > 0
 
     @staticmethod
     def ensure_user_role(username: str, role_name: str) -> bool:

@@ -55,6 +55,7 @@ class AdminLoginHandler(AdminBaseHandler):
         remember = self.get_body_argument("remember", None)
         expires_days = 7 if remember else None
 
+        UserRepository.update_last_login(username)
         self.set_secure_cookie("admin_username", username, expires_days=expires_days)
         self.redirect("/admin/")
 

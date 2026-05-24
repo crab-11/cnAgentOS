@@ -7,6 +7,13 @@
             <input type="text" id="search-username" placeholder="搜索用户名" class="layui-input" style="width: 250px;">
         </div>
         <div class="layui-inline">
+            <select id="search-status" class="layui-input" style="width: 120px; height: 38px;">
+                <option value="">全部状态</option>
+                <option value="1">正常</option>
+                <option value="0">禁用</option>
+            </select>
+        </div>
+        <div class="layui-inline">
             <button class="layui-btn" id="btn-search">
                 <i class="fas fa-search"></i> 搜索
             </button>
@@ -41,6 +48,18 @@
             <label class="layui-form-label"><i class="required">*</i>用户名</label>
             <div class="layui-input-block">
                 <input type="text" name="username" id="form-username" placeholder="请输入用户名" class="layui-input" lay-verify="required" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label"><i class="required">*</i>昵称</label>
+            <div class="layui-input-block">
+                <input type="text" name="nickname" id="form-nickname" placeholder="请输入昵称" class="layui-input" lay-verify="required" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label"><i class="required">*</i>邮箱</label>
+            <div class="layui-input-block">
+                <input type="email" name="email" id="form-email" placeholder="请输入邮箱" class="layui-input" lay-verify="required|email" autocomplete="off">
             </div>
         </div>
         <div class="layui-form-item">
@@ -82,8 +101,8 @@
         var $ = layui.jquery;
         var currentUsername = "{{ username }}";
 
-        var $userMenu = $('.sidebar-menu li:has(a:contains("用户管理"))');
-        var $userList = $('.sidebar-menu li:has(a:contains("用户列表"))');
+        var $userMenu = $('.sidebar-menu li:has(a:contains("系统管理"))');
+        var $userList = $('.sidebar-menu li:has(a:contains("用户管理"))');
         if(!$userMenu.hasClass('active')){
             $('.sidebar-menu li').removeClass('active');
             $userMenu.addClass('active');
@@ -106,18 +125,17 @@
                 {type: 'checkbox', fixed: 'left'},
                 {field: 'id', title: 'ID', width: 80, sort: true, fixed: 'left'},
                 {field: 'username', title: '用户名', width: 180},
+                {field: 'nickname', title: '昵称', width: 140, templet: function(d){ return d.nickname || '-'; }},
+                {field: 'email', title: '邮箱', width: 200, templet: function(d){ return d.email || '-'; }},
                 {field: 'role_name', title: '角色', width: 150},
                 {field: 'status', title: '状态', width: 100, templet: function(d){
                     return d.status === 1 ? '<span class="layui-badge layui-bg-green">正常</span>' : '<span class="layui-badge layui-bg-gray">禁用</span>';
                 }},
+                {field: 'last_login_at', title: '最后登录时间', width: 180, templet: function(d){
+                    return formatDateTime(d.last_login_at);
+                }},
                 {field: 'create_at', title: '创建时间', width: 180, templet: function(d){
-                    var date = new Date(d.create_at);
-                    var year = date.getFullYear();
-                    var month = (date.getMonth() + 1).toString().padStart(2, '0');
-                    var day = date.getDate().toString().padStart(2, '0');
-                    var hour = date.getHours().toString().padStart(2, '0');
-                    var minute = date.getMinutes().toString().padStart(2, '0');
-                    return year + '-' + month + '-' + day + ' ' + hour + ':' + minute;
+                    return formatDateTime(d.create_at);
                 }},
                 {title: '操作', width: 220, fixed: 'right', templet: function(d){
                     if(d.username === 'admin'){
@@ -137,6 +155,22 @@
             },
             cellMinWidth: 80
         });
+
+        function formatDateTime(value){
+            if(!value){
+                return '-';
+            }
+            var date = new Date(String(value).replace(' ', 'T'));
+            if(isNaN(date.getTime())){
+                return value;
+            }
+            var year = date.getFullYear();
+            var month = (date.getMonth() + 1).toString().padStart(2, '0');
+            var day = date.getDate().toString().padStart(2, '0');
+            var hour = date.getHours().toString().padStart(2, '0');
+            var minute = date.getMinutes().toString().padStart(2, '0');
+            return year + '-' + month + '-' + day + ' ' + hour + ':' + minute;
+        }
 
         function loadRoleOptions(selectedRoleId, callback){
             $.get('/admin/api/role/list', {page: 1, limit: 1000}, function(res){
@@ -160,8 +194,9 @@
 
         $('#btn-search').on('click', function(){
             var username = $('#search-username').val();
+            var status = $('#search-status').val();
             table.reload('user-table', {
-                where: {username: username},
+                where: {username: username, status: status},
                 page: {curr: 1}
             });
         });
@@ -170,6 +205,8 @@
             $('#user-form')[0].reset();
             $('#form-id').val('');
             $('#form-username').prop('readonly', false);
+            $('#form-nickname').prop('readonly', false);
+            $('#form-email').prop('readonly', false);
             $('#form-password').attr('placeholder', '请输入密码').attr('lay-verify', 'required');
             $('#form-role').prop('disabled', false);
             $('input[name="status"]').prop('disabled', false);
@@ -179,7 +216,7 @@
                 layer.open({
                     type: 1,
                     title: '<i class="fas fa-user-plus" style="margin-right:8px;"></i>新增用户',
-                    area: ['500px', '410px'],
+                    area: ['520px', '560px'],
                     skin: 'layui-layer-admin',
                     content: $('#user-form-dialog')
                 });
@@ -211,16 +248,22 @@
             if(obj.event === 'edit'){
                 $('#form-id').val(data.id);
                 $('#form-username').val(data.username);
+                $('#form-nickname').val(data.nickname || '');
+                $('#form-email').val(data.email || '');
                 $('#form-password').val('').attr('placeholder', data.username === 'admin' ? '请输入新密码' : '留空表示不修改密码');
                 $('input[name="status"]').prop('checked', data.status === 1);
 
                 if(data.username === 'admin'){
                     $('#form-username').prop('readonly', true);
+                    $('#form-nickname').prop('readonly', true);
+                    $('#form-email').prop('readonly', true);
                     $('#form-password').attr('lay-verify', 'required');
                     $('#form-role').prop('disabled', true);
                     $('input[name="status"]').prop('disabled', true);
                 } else {
                     $('#form-username').prop('readonly', false);
+                    $('#form-nickname').prop('readonly', false);
+                    $('#form-email').prop('readonly', false);
                     $('#form-password').removeAttr('lay-verify');
                     $('#form-role').prop('disabled', false);
                     $('input[name="status"]').prop('disabled', false);
@@ -231,7 +274,7 @@
                     layer.open({
                         type: 1,
                         title: data.username === 'admin' ? '<i class="fas fa-key" style="margin-right:8px;"></i>修改admin密码' : '<i class="fas fa-edit" style="margin-right:8px;"></i>编辑用户',
-                        area: ['500px', '410px'],
+                        area: ['520px', '560px'],
                         skin: 'layui-layer-admin',
                         content: $('#user-form-dialog')
                     });
@@ -313,6 +356,8 @@
                 $('#btn-search').click();
             }
         });
+
+        form.render('select');
     });
 </script>
 <style>

@@ -57,23 +57,32 @@ class AdminRoleAddHandler(AdminBaseHandler):
         name = (self.get_body_argument("name", "") or "").strip()
         display_name = (self.get_body_argument("display_name", "") or "").strip()
         description = (self.get_body_argument("description", "") or "").strip() or None
+        permission_ids_str = (self.get_body_argument("permission_ids", "") or "").strip()
 
         if not name or not display_name:
-            return self.write({"code": 1, "msg": "角色名称和显示名称不能为空"})
+            return self.write({"code": 1, "msg": "角色标识和角色名称不能为空"})
 
         if len(name) < 2 or len(name) > 20:
             return self.write({"code": 1, "msg": "角色名称长度应在2-20个字符之间"})
 
-        success = RoleRepository.create_role(
+        permission_ids = []
+        if permission_ids_str:
+            try:
+                permission_ids = [int(x) for x in permission_ids_str.split(",") if x]
+            except ValueError:
+                return self.write({"code": 1, "msg": "权限参数格式错误"})
+
+        role_id = RoleRepository.create_role(
             name=name,
             display_name=display_name,
             description=description
         )
 
-        if success:
+        if role_id:
+            RoleRepository.set_role_permissions(role_id, permission_ids)
             return self.write({"code": 0, "msg": "角色创建成功"})
         else:
-            return self.write({"code": 1, "msg": "角色创建失败，角色代码可能已存在"})
+            return self.write({"code": 1, "msg": "角色创建失败，角色标识可能已存在"})
 
 
 class AdminRoleUpdateHandler(AdminBaseHandler):
@@ -94,14 +103,22 @@ class AdminRoleUpdateHandler(AdminBaseHandler):
         display_name = (self.get_body_argument("display_name", "") or "").strip()
         description = (self.get_body_argument("description", "") or "").strip() or None
         status = self.get_body_argument("status", None)
+        permission_ids_str = (self.get_body_argument("permission_ids", "") or "").strip()
 
         if not display_name:
-            return self.write({"code": 1, "msg": "显示名称不能为空"})
+            return self.write({"code": 1, "msg": "角色名称不能为空"})
 
         if status is not None:
             status = int(status)
         else:
             status = 0
+
+        permission_ids = []
+        if permission_ids_str:
+            try:
+                permission_ids = [int(x) for x in permission_ids_str.split(",") if x]
+            except ValueError:
+                return self.write({"code": 1, "msg": "权限参数格式错误"})
 
         success = RoleRepository.update_role(
             role_id=role_id,
@@ -111,6 +128,7 @@ class AdminRoleUpdateHandler(AdminBaseHandler):
         )
 
         if success:
+            RoleRepository.set_role_permissions(role_id, permission_ids)
             return self.write({"code": 0, "msg": "角色更新成功"})
         else:
             return self.write({"code": 1, "msg": "角色更新失败"})
