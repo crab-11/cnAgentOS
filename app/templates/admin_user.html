@@ -20,7 +20,9 @@
     </div>
 </div>
 
-<table id="user-table" lay-filter="user-table"></table>
+<div class="table-container">
+    <table id="user-table" lay-filter="user-table"></table>
+</div>
 
 <script type="text/html" id="toolbar-user">
     <a class="layui-btn layui-btn-xs" lay-event="edit">
@@ -72,9 +74,16 @@
         var layer = layui.layer;
         var $ = layui.jquery;
 
-        $('.sidebar-menu li').removeClass('active');
-        $('.sidebar-menu li:has(a:contains("用户管理"))').addClass('active').find('.submenu').show();
-        $('.sidebar-menu li:has(a:contains("用户列表"))').addClass('active');
+        var $userMenu = $('.sidebar-menu li:has(a:contains("用户管理"))');
+        var $userList = $('.sidebar-menu li:has(a:contains("用户列表"))');
+        if(!$userMenu.hasClass('active')){
+            $('.sidebar-menu li').removeClass('active');
+            $userMenu.addClass('active');
+        }
+        $userMenu.find('.submenu').show();
+        if(!$userList.hasClass('active')){
+            $userList.addClass('active');
+        }
 
         table.render({
             elem: '#user-table',

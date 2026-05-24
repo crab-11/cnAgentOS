@@ -14,234 +14,231 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
             min-height: 100vh;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 50%, #f0f2f5 100%);
+            background: #f5f7fa;
             overflow: hidden;
         }
 
         .login-container {
             display: flex;
             height: 100vh;
-            position: relative;
         }
 
         .left-section {
             flex: 1;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d4a6f 50%, #1e3a5f 100%);
             position: relative;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
+            color: #fff;
         }
 
-        .bg-decoration {
+        .left-section::before {
+            content: '';
             position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
         }
 
-        .bg-circle {
+        .bg-shape {
             position: absolute;
             border-radius: 50%;
-            opacity: 0.6;
-            animation: float 6s ease-in-out infinite;
+            opacity: 0.15;
         }
 
-        .bg-circle.c1 {
-            width: 400px;
-            height: 400px;
-            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
-            top: -100px;
+        .bg-shape.s1 {
+            width: 500px;
+            height: 500px;
+            background: #4a90d9;
+            top: -200px;
             left: -100px;
-            animation-delay: 0s;
         }
 
-        .bg-circle.c2 {
+        .bg-shape.s2 {
             width: 300px;
             height: 300px;
-            background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
-            bottom: -50px;
-            right: 100px;
-            animation-delay: 2s;
+            background: #6c5ce7;
+            bottom: -100px;
+            right: -50px;
         }
 
-        .bg-circle.c3 {
+        .bg-shape.s3 {
             width: 200px;
             height: 200px;
-            background: linear-gradient(135deg, #722ed1 0%, #531dab 100%);
+            background: #00cec9;
             top: 50%;
-            right: -50px;
-            animation-delay: 4s;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(5deg); }
-        }
-
-        .illustration {
+        .left-content {
             position: relative;
             z-index: 10;
-            animation: fadeInUp 1s ease-out;
+            padding: 60px;
+            max-width: 500px;
         }
 
-        .isometric-box {
-            position: relative;
-            width: 300px;
-            height: 300px;
+        .brand-logo {
             display: flex;
             align-items: center;
-            justify-content: center;
-        }
-
-        .cube-wrapper {
-            position: relative;
-            perspective: 1000px;
-        }
-
-        .cube {
-            width: 120px;
-            height: 120px;
-            position: relative;
-            transform-style: preserve-3d;
-            animation: rotateCube 8s infinite linear;
-        }
-
-        @keyframes rotateCube {
-            0% { transform: rotateX(-20deg) rotateY(0deg); }
-            100% { transform: rotateX(-20deg) rotateY(360deg); }
-        }
-
-        .cube-face {
-            position: absolute;
-            width: 120px;
-            height: 120px;
-            background: rgba(0, 212, 255, 0.2);
-            border: 2px solid rgba(0, 212, 255, 0.5);
-            backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: #0099ff;
-        }
-
-        .cube-face.front { transform: rotateY(0deg) translateZ(60px); }
-        .cube-face.back { transform: rotateY(180deg) translateZ(60px); }
-        .cube-face.right { transform: rotateY(90deg) translateZ(60px); }
-        .cube-face.left { transform: rotateY(-90deg) translateZ(60px); }
-        .cube-face.top { transform: rotateX(90deg) translateZ(60px); }
-        .cube-face.bottom { transform: rotateX(-90deg) translateZ(60px); }
-
-        .floating-blocks {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
-        .block {
-            position: absolute;
-            background: linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(82, 196, 26, 0.3));
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            animation: blockFloat 4s ease-in-out infinite;
-        }
-
-        .block.b1 { width: 60px; height: 60px; top: 20%; left: 10%; animation-delay: 0s; }
-        .block.b2 { width: 40px; height: 40px; top: 30%; right: 20%; animation-delay: 1s; }
-        .block.b3 { width: 50px; height: 50px; bottom: 30%; left: 15%; animation-delay: 2s; }
-        .block.b4 { width: 35px; height: 35px; bottom: 20%; right: 15%; animation-delay: 3s; }
-
-        @keyframes blockFloat {
-            0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
-            50% { transform: translateY(-15px) rotate(5deg); opacity: 0.9; }
-        }
-
-        .text-decoration {
-            position: absolute;
-            bottom: 60px;
-            left: 60px;
-            z-index: 10;
-        }
-
-        .text-decoration h1 {
-            font-size: 36px;
-            font-weight: 700;
-            color: #1a1a2e;
-            margin-bottom: 10px;
-            animation: fadeInLeft 0.8s ease-out;
-        }
-
-        .text-decoration p {
-            font-size: 16px;
-            color: #666;
-            animation: fadeInLeft 0.8s ease-out 0.2s both;
-        }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes fadeInLeft {
-            from { opacity: 0; transform: translateX(-30px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        .right-section {
-            width: 420px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
-            box-shadow: -10px 0 40px rgba(0, 0, 0, 0.05);
-        }
-
-        .login-card {
-            width: 100%;
-            animation: fadeInRight 0.8s ease-out;
-        }
-
-        @keyframes fadeInRight {
-            from { opacity: 0; transform: translateX(30px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        .login-header {
-            text-align: center;
+            gap: 16px;
             margin-bottom: 40px;
         }
 
-        .logo {
-            width: 64px;
-            height: 64px;
-            margin: 0 auto 20px;
-            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
-            border-radius: 16px;
+        .logo-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 28px;
-            color: #fff;
             font-weight: 700;
-            box-shadow: 0 8px 24px rgba(0, 153, 255, 0.3);
+            color: #fff;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+        }
+
+        .brand-title {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-subtitle {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 2px;
+        }
+
+        .hero-section {
+            margin-bottom: 60px;
+        }
+
+        .hero-title {
+            font-size: 42px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+
+        .hero-description {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.8;
+            max-width: 400px;
+        }
+
+        .features-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .feature-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+
+        .feature-icon i {
+            font-size: 20px;
+            color: #667eea;
+        }
+
+        .feature-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .feature-title {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .feature-description {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.5;
+        }
+
+        .left-footer {
+            position: absolute;
+            bottom: 40px;
+            left: 60px;
+            right: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+        }
+
+        .right-section {
+            width: 480px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.05);
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 380px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .login-logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            box-shadow: 0 8px 28px rgba(102, 126, 234, 0.35);
         }
 
         .login-header h2 {
             font-size: 24px;
-            font-weight: 600;
+            font-weight: 700;
             color: #1a1a2e;
             margin-bottom: 8px;
         }
 
         .login-header p {
             font-size: 14px;
-            color: #999;
+            color: #888;
         }
 
         .login-form {
@@ -256,30 +253,36 @@
 
         .form-group .input-icon {
             position: absolute;
-            left: 16px;
+            left: 20px;
             top: 50%;
             transform: translateY(-50%);
             color: #999;
             font-size: 16px;
             z-index: 10;
+            transition: color 0.3s ease;
         }
 
         .form-group input {
             width: 100%;
             height: 48px;
-            padding: 0 16px 0 48px;
+            padding: 0 20px 0 50px;
             border: 1px solid #e8e8e8;
             border-radius: 10px;
             font-size: 14px;
             transition: all 0.3s ease;
             background: #fafafa;
             outline: none;
+            color: #333;
         }
 
         .form-group input:focus {
-            border-color: #0099ff;
+            border-color: #667eea;
             background: #fff;
-            box-shadow: 0 0 0 3px rgba(0, 153, 255, 0.1);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.08);
+        }
+
+        .form-group input:focus + .input-icon {
+            color: #667eea;
         }
 
         .form-group input::placeholder {
@@ -287,14 +290,14 @@
         }
 
         .form-group input:hover {
-            border-color: #ccc;
+            border-color: #d0d0d0;
         }
 
         .form-options {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 8px;
+            margin-top: 4px;
         }
 
         .form-options label {
@@ -309,13 +312,15 @@
             width: 16px;
             height: 16px;
             margin-right: 8px;
-            accent-color: #0099ff;
+            accent-color: #667eea;
+            cursor: pointer;
         }
 
         .form-options a {
             font-size: 13px;
-            color: #0099ff;
+            color: #667eea;
             text-decoration: none;
+            font-weight: 500;
         }
 
         .form-options a:hover {
@@ -324,53 +329,37 @@
 
         .btn-primary {
             width: 100%;
-            height: 48px;
-            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
             border-radius: 10px;
             color: #fff;
-            font-size: 16px;
-            font-weight: 500;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            margin-top: 8px;
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(15, 52, 96, 0.4);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
         }
 
         .btn-primary:active {
             transform: translateY(0);
         }
 
-        .btn-secondary {
-            width: 100%;
-            height: 48px;
-            background: #fff;
-            border: 1px solid #e8e8e8;
-            border-radius: 10px;
-            color: #666;
+        .btn-primary i {
             font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn-secondary:hover {
-            border-color: #0099ff;
-            color: #0099ff;
         }
 
         .error-msg {
-            background: #fff2f0;
+            background: #fff5f5;
             border: 1px solid #ffccc7;
             color: #ff4d4f;
             padding: 12px 16px;
@@ -379,37 +368,52 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            animation: shake 0.5s ease;
+            animation: shake 0.4s ease;
         }
 
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
         }
 
         .login-footer {
             text-align: center;
-            margin-top: 30px;
-            padding-top: 20px;
+            margin-top: 40px;
+            padding-top: 24px;
             border-top: 1px solid #f0f0f0;
         }
 
         .login-footer p {
-            font-size: 13px;
+            font-size: 12px;
             color: #999;
         }
 
         .login-footer a {
-            color: #0099ff;
+            color: #667eea;
             text-decoration: none;
+            font-weight: 500;
         }
 
         .login-footer a:hover {
             text-decoration: underline;
         }
 
-        @media (max-width: 768px) {
+        .security-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 12px;
+            color: #52c41a;
+            font-size: 11px;
+        }
+
+        .security-badge i {
+            font-size: 12px;
+        }
+
+        @media (max-width: 900px) {
             .login-container {
                 flex-direction: column;
             }
@@ -422,11 +426,16 @@
                 width: 100%;
                 height: 100vh;
                 box-shadow: none;
+                padding: 40px 20px;
             }
 
             .login-card {
                 width: 100%;
-                max-width: 360px;
+                max-width: 340px;
+            }
+
+            .hero-title {
+                font-size: 32px;
             }
         }
     </style>
@@ -434,48 +443,67 @@
 <body>
     <div class="login-container">
         <div class="left-section">
-            <div class="bg-decoration">
-                <div class="bg-circle c1"></div>
-                <div class="bg-circle c2"></div>
-                <div class="bg-circle c3"></div>
-            </div>
+            <div class="bg-shape s1"></div>
+            <div class="bg-shape s2"></div>
+            <div class="bg-shape s3"></div>
+            
+            <div class="left-content">
+                <div class="brand-logo">
+                    <div class="logo-icon">A</div>
+                    <div>
+                        <div class="brand-title">cnAgentOS</div>
+                        <div class="brand-subtitle">AI智能瞭望与智能问数系统</div>
+                    </div>
+                </div>
 
-            <div class="floating-blocks">
-                <div class="block b1"></div>
-                <div class="block b2"></div>
-                <div class="block b3"></div>
-                <div class="block b4"></div>
-            </div>
+                <div class="hero-section">
+                    <h1 class="hero-title">智能驱动未来<br/>数据创造价值</h1>
+                    <p class="hero-description">基于先进AI技术，为企业提供全方位的数据洞察与智能分析能力，助力业务决策升级。</p>
+                </div>
 
-            <div class="illustration">
-                <div class="isometric-box">
-                    <div class="cube-wrapper">
-                        <div class="cube">
-                            <div class="cube-face front"><i class="fas fa-chart-line"></i></div>
-                            <div class="cube-face back"><i class="fas fa-brain"></i></div>
-                            <div class="cube-face right"><i class="fas fa-cloud"></i></div>
-                            <div class="cube-face left"><i class="fas fa-database"></i></div>
-                            <div class="cube-face top"><i class="fas fa-cpu"></i></div>
-                            <div class="cube-face bottom"><i class="fas fa-network-wired"></i></div>
+                <div class="features-list">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <div class="feature-content">
+                            <div class="feature-title">AI智能分析</div>
+                            <div class="feature-description">深度学习驱动，自动挖掘数据价值</div>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="feature-content">
+                            <div class="feature-title">实时数据监控</div>
+                            <div class="feature-description">7x24小时全天候数据监测预警</div>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="feature-content">
+                            <div class="feature-title">企业级安全</div>
+                            <div class="feature-description">多层加密保护，数据安全无忧</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="text-decoration">
-                <h1>AI智能瞭望系统</h1>
-                <p>智能问数 · 数据洞察 · 智慧决策</p>
+            <div class="left-footer">
+                <span>© 2026 cnAgentOS. All rights reserved.</span>
+                <span>v2.0.0</span>
             </div>
         </div>
 
         <div class="right-section">
             <div class="login-card">
                 <div class="login-header">
-                    <div class="logo">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <h2>cnAgentOS</h2>
-                    <p>AI智能瞭望与智能问数系统</p>
+                    <div class="login-logo">A</div>
+                    <h2>欢迎回来</h2>
+                    <p>请登录您的账户</p>
                 </div>
 
                 {% if error %}
@@ -486,13 +514,13 @@
 
                 <form class="login-form" method="post" action="/admin/auth/login">
                     <div class="form-group">
-                        <i class="fas fa-user input-icon"></i>
                         <input type="text" name="username" placeholder="请输入用户名" autocomplete="username" value="admin">
+                        <i class="fas fa-user input-icon"></i>
                     </div>
 
                     <div class="form-group">
-                        <i class="fas fa-lock input-icon"></i>
                         <input type="password" name="password" placeholder="请输入密码" autocomplete="current-password" value="admin888">
+                        <i class="fas fa-lock input-icon"></i>
                     </div>
 
                     <div class="form-options">
@@ -511,7 +539,11 @@
                 </form>
 
                 <div class="login-footer">
-                    <p>© 2026 cnAgentOS. All rights reserved.</p>
+                    <p>新用户? <a href="javascript:;">立即注册</a></p>
+                    <div class="security-badge">
+                        <i class="fas fa-shield-check"></i>
+                        <span>企业级安全保障</span>
+                    </div>
                 </div>
             </div>
         </div>

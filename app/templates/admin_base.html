@@ -203,6 +203,32 @@
             overflow-y: auto;
         }
 
+        .table-container {
+            overflow-x: auto;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+        }
+        
+        .table-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .table-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
         .page-title {
             font-size: 18px;
             font-weight: 600;
@@ -441,22 +467,35 @@
             var layer = layui.layer;
             var $ = layui.jquery;
 
-            $('.sidebar-menu li a').on('click', function(e){
+            $('.sidebar-menu .submenu li a').on('click', function(e){
+                e.stopPropagation();
                 var $this = $(this);
-                var $li = $this.parent();
-                
-                if($li.hasClass('active')){
-                    $li.find('.submenu').slideToggle();
-                } else {
-                    $('.sidebar-menu li').removeClass('active');
-                    $li.addClass('active');
-                    $('.sidebar-menu .submenu').slideUp();
-                    $li.find('.submenu').slideDown();
-                }
-                
                 var url = $this.data('url');
                 if(url){
                     window.location.href = url;
+                }
+            });
+
+            $('.sidebar-menu > ul > li > a').on('click', function(e){
+                var $this = $(this);
+                var $li = $this.parent();
+                
+                if($li.find('.submenu').length > 0){
+                    e.preventDefault();
+                    if($li.hasClass('active')){
+                        $li.find('.submenu').slideUp();
+                        $li.removeClass('active');
+                    } else {
+                        $('.sidebar-menu li').removeClass('active');
+                        $('.sidebar-menu .submenu').slideUp();
+                        $li.addClass('active');
+                        $li.find('.submenu').slideDown();
+                    }
+                } else {
+                    var url = $this.data('url');
+                    if(url){
+                        window.location.href = url;
+                    }
                 }
             });
 
