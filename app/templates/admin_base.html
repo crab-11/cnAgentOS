@@ -502,12 +502,32 @@
         </div>
     </div>
 
+    <div id="xsrf-holder" style="display:none;">
+        {% module xsrf_form_html() %}
+    </div>
     <script src="{{ static_url('libs/layui-v2.13.6/layui/layui.js') }}"></script>
     <script>
         layui.use(['form', 'layer', 'jquery'], function(){
             var form = layui.form;
             var layer = layui.layer;
             var $ = layui.jquery;
+
+            function getCookie(name){
+                var value = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+                return value ? decodeURIComponent(value.pop()) : '';
+            }
+
+            window.getXsrfToken = function(){
+                return $('input[name="_xsrf"]').first().val() || getCookie('_xsrf');
+            };
+
+            $.ajaxSetup({
+                beforeSend: function(xhr, settings){
+                    if(!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)){
+                        xhr.setRequestHeader('X-XSRFToken', window.getXsrfToken());
+                    }
+                }
+            });
 
             $('.sidebar-menu .submenu li a').on('click', function(e){
                 e.stopPropagation();

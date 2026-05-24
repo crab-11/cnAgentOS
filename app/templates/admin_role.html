@@ -21,6 +21,10 @@
     <table id="role-table" lay-filter="role-table"></table>
 </div>
 
+<div style="display:none;">
+    {% module xsrf_form_html() %}
+</div>
+
 <script type="text/html" id="toolbar-role">
     <a class="layui-btn layui-btn-xs" lay-event="edit">
         <i class="fas fa-edit"></i> 编辑
@@ -58,7 +62,7 @@
         <div class="layui-form-item" id="status-item" style="display:none;">
             <label class="layui-form-label">状态</label>
             <div class="layui-input-block">
-                <input type="switch" name="status" lay-skin="switch" lay-text="正常|禁用" value="1" checked>
+                <input type="checkbox" name="status" lay-skin="switch" lay-text="正常|禁用" value="1" checked>
             </div>
         </div>
         <div class="layui-form-item" style="margin-bottom: 0; border-top: 1px solid #e6e6e6; padding-top: 15px; margin-top: 5px;">
@@ -150,6 +154,7 @@
             $('#role-form')[0].reset();
             $('#form-id').val('');
             $('#form-name').attr('readonly', false);
+            $('input[name="status"]').prop('checked', true);
             $('#status-item').hide();
             form.render();
             layer.open({
@@ -173,7 +178,7 @@
                 $('#form-display-name').val(data.display_name);
                 $('#form-description').val(data.description || '');
                 $('#status-item').show();
-                $('input[name="status"][value="' + data.status + '"]').prop('checked', true);
+                $('input[name="status"]').prop('checked', data.status === 1);
                 form.render();
                 layer.open({
                     type: 1,
@@ -193,8 +198,9 @@
                     icon: 3,
                     title: '<i class="fas fa-exclamation-triangle" style="margin-right:8px;color:#ff0000;"></i>删除确认',
                     btn: ['确定删除', '取消'],
-                    btn1: function(index){
-                        var xsrf = $('input[name="_xsrf"]').val();
+                    yes: function(index){
+                        var xsrf = window.getXsrfToken ? window.getXsrfToken() : $('input[name="_xsrf"]').val();
+                        var loading = layer.load(2, {shade: [0.12, '#fff']});
                         $.post('/admin/api/role/delete', {id: data.id, _xsrf: xsrf}, function(res){
                             if(res.code === 0){
                                 layer.msg(res.msg, {icon: 1});
@@ -202,8 +208,13 @@
                             } else {
                                 layer.msg(res.msg, {icon: 2});
                             }
+                            layer.close(index);
+                        }).fail(function(xhr, status, error){
+                            layer.msg('请求失败: ' + status, {icon: 2});
+                            layer.close(index);
+                        }).always(function(){
+                            layer.close(loading);
                         });
-                        layer.close(index);
                     }
                 });
             }
@@ -220,7 +231,7 @@
                     $.each(res.data, function(i, group){
                         html += '<div class="perm-group" style="margin-bottom:15px;">';
                         html += '<div class="perm-group-title" style="font-weight:600;margin-bottom:8px;padding:8px 10px;background:#f5f7fa;border-radius:4px;">';
-                        html += '<label style="cursor:pointer;"><input type="checkbox" class="perm-group-check" data-group="' + group.id + '" lay-skin="primary"> ' + group.name + '</label>';
+                        html += '<label style="cursor:pointer;"><input type="checkbox" class="perm-group-check" data-group="' + group.id + '" value="' + group.id + '" lay-skin="primary"> ' + group.name + '</label>';
                         html += '</div>';
                         html += '<div class="perm-group-menus" style="padding-left:10px;">';
                         if(group.children && group.children.length > 0){
@@ -292,6 +303,9 @@
         form.on('submit(form-perm-save)', function(data){
             var formData = data.field;
             var permissionIds = [];
+            $('.perm-group-check:checked').each(function(){
+                permissionIds.push($(this).val());
+            });
             $('.perm-menu-check:checked').each(function(){
                 permissionIds.push($(this).val());
             });

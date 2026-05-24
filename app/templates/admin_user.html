@@ -52,7 +52,7 @@
         <div class="layui-form-item">
             <label class="layui-form-label">状态</label>
             <div class="layui-input-block">
-                <input type="switch" name="status" lay-skin="switch" lay-text="正常|禁用" value="1" checked>
+                <input type="checkbox" name="status" lay-skin="switch" lay-text="正常|禁用" value="1" checked>
             </div>
         </div>
         <div class="layui-form-item" style="margin-bottom: 0; border-top: 1px solid #e6e6e6; padding-top: 15px; margin-top: 5px;">
@@ -72,6 +72,7 @@
         var form = layui.form;
         var layer = layui.layer;
         var $ = layui.jquery;
+        var currentUsername = "{{ username }}";
 
         var $userMenu = $('.sidebar-menu li:has(a:contains("用户管理"))');
         var $userList = $('.sidebar-menu li:has(a:contains("用户列表"))');
@@ -134,6 +135,7 @@
         $('#btn-add').on('click', function(){
             $('#user-form')[0].reset();
             $('#form-id').val('');
+            $('input[name="status"]').prop('checked', true);
             form.render();
             layer.open({
                 type: 1,
@@ -170,7 +172,7 @@
                 $('#form-id').val(data.id);
                 $('#form-username').val(data.username);
                 $('#form-password').val('').attr('placeholder', '留空表示不修改密码');
-                $('input[name="status"][value="' + data.status + '"]').prop('checked', true);
+                $('input[name="status"]').prop('checked', data.status === 1);
                 form.render();
                 layer.open({
                     type: 1,
@@ -180,19 +182,30 @@
                     content: $('#user-form-dialog')
                 });
             } else if(obj.event === 'delete'){
+                if(data.username === currentUsername){
+                    layer.msg('当前登录账户不能删除，请先切换到其他管理员账户', {icon: 0});
+                    return;
+                }
+
                 layer.confirm('确定要删除用户 <strong>' + data.username + '</strong> 吗？<br><span style="color:#999;font-size:12px;">删除后无法恢复，请谨慎操作。</span>', {
                     icon: 3,
                     title: '<i class="fas fa-exclamation-triangle" style="margin-right:8px;color:#ff0000;"></i>删除确认',
                     btn: ['确定删除', '取消'],
-                    btn1: function(index){
-                        var xsrf = $('input[name="_xsrf"]').val();
+                    yes: function(index){
+                        var xsrf = window.getXsrfToken ? window.getXsrfToken() : $('input[name="_xsrf"]').val();
+                        var loading = layer.load(2, {shade: [0.12, '#fff']});
                         $.post('/admin/api/user/delete', {id: data.id, _xsrf: xsrf}, function(res){
                             if(res.code === 0){
                                 layer.msg(res.msg, {icon: 1});
-                                table.reload('user-table');
+                                obj.del();
+                                table.reload('user-table', {page: {curr: 1}});
                             } else {
                                 layer.msg(res.msg, {icon: 2});
                             }
+                        }).fail(function(xhr){
+                            layer.msg('删除请求失败：' + (xhr.responseText || xhr.status), {icon: 2});
+                        }).always(function(){
+                            layer.close(loading);
                         });
                         layer.close(index);
                     }
@@ -205,23 +218,35 @@
             var ids = checkStatus.data.map(function(item){
                 return item.id;
             });
+            var hasCurrentUser = checkStatus.data.some(function(item){
+                return item.username === currentUsername;
+            });
             if(ids.length === 0){
                 layer.msg('请选择要删除的用户', {icon: 0});
+                return;
+            }
+            if(hasCurrentUser){
+                layer.msg('批量删除不能包含当前登录账户，请取消勾选当前账户', {icon: 0});
                 return;
             }
             layer.confirm('确定要删除选中的 <strong>' + ids.length + '</strong> 个用户吗？<br><span style="color:#999;font-size:12px;">删除后无法恢复，请谨慎操作。</span>', {
                 icon: 3,
                 title: '<i class="fas fa-exclamation-triangle" style="margin-right:8px;color:#ff0000;"></i>批量删除确认',
                 btn: ['确定删除', '取消'],
-                btn1: function(index){
-                    var xsrf = $('input[name="_xsrf"]').val();
+                yes: function(index){
+                    var xsrf = window.getXsrfToken ? window.getXsrfToken() : $('input[name="_xsrf"]').val();
+                    var loading = layer.load(2, {shade: [0.12, '#fff']});
                     $.post('/admin/api/user/batch-delete', {ids: JSON.stringify(ids), _xsrf: xsrf}, function(res){
                         if(res.code === 0){
                             layer.msg(res.msg, {icon: 1});
-                            table.reload('user-table');
+                            table.reload('user-table', {page: {curr: 1}});
                         } else {
                             layer.msg(res.msg, {icon: 2});
                         }
+                    }).fail(function(xhr){
+                        layer.msg('批量删除请求失败：' + (xhr.responseText || xhr.status), {icon: 2});
+                    }).always(function(){
+                        layer.close(loading);
                     });
                     layer.close(index);
                 }

@@ -100,6 +100,8 @@ class AdminRoleUpdateHandler(AdminBaseHandler):
 
         if status is not None:
             status = int(status)
+        else:
+            status = 0
 
         success = RoleRepository.update_role(
             role_id=role_id,

@@ -46,7 +46,7 @@ class AdminUserAddHandler(AdminBaseHandler):
     def post(self):
         username = (self.get_body_argument("username", "") or "").strip()
         password = (self.get_body_argument("password", "") or "").strip()
-        status = int(self.get_body_argument("status", 1))
+        status = int(self.get_body_argument("status", 0))
 
         if not username or not password:
             return self.write({"code": 1, "msg": "用户名和密码不能为空"})
@@ -71,7 +71,7 @@ class AdminUserUpdateHandler(AdminBaseHandler):
         user_id = int(self.get_body_argument("id", 0))
         username = (self.get_body_argument("username", "") or "").strip()
         password = (self.get_body_argument("password", "") or "").strip()
-        status = int(self.get_body_argument("status", 1))
+        status = int(self.get_body_argument("status", 0))
 
         if not user_id:
             return self.write({"code": 1, "msg": "用户ID无效"})

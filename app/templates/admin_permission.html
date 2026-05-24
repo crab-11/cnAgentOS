@@ -243,8 +243,9 @@
                     icon: 3,
                     title: '<i class="fas fa-exclamation-triangle" style="margin-right:8px;color:#ff0000;"></i>删除确认',
                     btn: ['确定删除', '取消'],
-                    btn1: function(index){
-                        var xsrf = $('input[name="_xsrf"]').val();
+                    yes: function(index){
+                        var xsrf = window.getXsrfToken ? window.getXsrfToken() : $('input[name="_xsrf"]').val();
+                        var loading = layer.load(2, {shade: [0.12, '#fff']});
                         $.post('/admin/api/permission/delete', {id: data.id, _xsrf: xsrf}, function(res){
                             if(res.code === 0){
                                 layer.msg(res.msg, {icon: 1});
@@ -252,6 +253,10 @@
                             } else {
                                 layer.msg(res.msg, {icon: 2});
                             }
+                        }).fail(function(xhr){
+                            layer.msg('删除请求失败：' + (xhr.responseText || xhr.status), {icon: 2});
+                        }).always(function(){
+                            layer.close(loading);
                         });
                         layer.close(index);
                     }

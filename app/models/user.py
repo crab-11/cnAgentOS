@@ -126,14 +126,19 @@ class UserRepository:
     @staticmethod
     def delete_user(user_id: int) -> bool:
         with get_connection() as conn:
+            conn.execute("delete from user_roles where user_id = ?", (user_id,))
             cursor = conn.execute("delete from users where id = ?", (user_id,))
             return cursor.rowcount > 0
 
     # 批量删除用户
     @staticmethod
     def batch_delete_user(user_ids: list) -> int:
+        if not user_ids:
+            return 0
+
         with get_connection() as conn:
             placeholders = ",".join("?" for _ in user_ids)
+            conn.execute(f"delete from user_roles where user_id in ({placeholders})", user_ids)
             cursor = conn.execute(f"delete from users where id in ({placeholders})", user_ids)
             return cursor.rowcount
 

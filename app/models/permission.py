@@ -109,8 +109,24 @@ class PermissionRepository:
     @staticmethod
     def delete_permission(permission_id):
         with get_connection() as conn:
-            conn.execute("DELETE FROM role_permissions WHERE permission_id = ?", (permission_id,))
-            cursor = conn.execute("DELETE FROM permissions WHERE id = ?", (permission_id,))
+            rows = conn.execute(
+                "SELECT id FROM permissions WHERE id = ? OR parent_id = ?",
+                (permission_id, permission_id)
+            ).fetchall()
+            permission_ids = [row["id"] for row in rows]
+
+            if not permission_ids:
+                return False
+
+            placeholders = ",".join("?" for _ in permission_ids)
+            conn.execute(
+                f"DELETE FROM role_permissions WHERE permission_id IN ({placeholders})",
+                permission_ids
+            )
+            cursor = conn.execute(
+                f"DELETE FROM permissions WHERE id IN ({placeholders})",
+                permission_ids
+            )
             return cursor.rowcount > 0
 
     @staticmethod

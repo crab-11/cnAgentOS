@@ -97,8 +97,18 @@ class RoleRepository:
     @staticmethod
     def delete_role(role_id):
         with get_connection() as conn:
+            role = conn.execute(
+                "SELECT id FROM roles WHERE id = ? AND is_system = 0",
+                (role_id,)
+            ).fetchone()
+
+            if not role:
+                return False
+
+            conn.execute("DELETE FROM role_permissions WHERE role_id = ?", (role_id,))
+            conn.execute("DELETE FROM user_roles WHERE role_id = ?", (role_id,))
             cursor = conn.execute(
-                "DELETE FROM roles WHERE id = ? AND is_system = 0",
+                "DELETE FROM roles WHERE id = ?",
                 (role_id,)
             )
             return cursor.rowcount > 0
@@ -117,6 +127,8 @@ class RoleRepository:
 
     @staticmethod
     def set_role_permissions(role_id, permission_ids):
+        permission_ids = list(dict.fromkeys(permission_ids))
+
         with get_connection() as conn:
             conn.execute("DELETE FROM role_permissions WHERE role_id = ?", (role_id,))
 

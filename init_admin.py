@@ -14,7 +14,13 @@ def init_admin():
     user = UserRepository.get_user_by_username(admin_username)
     
     if user:
-        print(f"管理员账户已存在: {admin_username}")
+        UserRepository.update_user(
+            user_id=user["id"],
+            username=admin_username,
+            password=admin_password,
+            status=1
+        )
+        print(f"管理员账户已存在，已重置为默认密码: {admin_username}")
     else:
         success = UserRepository.create_user(admin_username, admin_password, role="admin", status=1)
         if success:
