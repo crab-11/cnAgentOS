@@ -139,7 +139,7 @@
                 {field: 'url', title: 'URL', width: 180},
                 {field: 'sort_order', title: '排序', width: 70},
                 {field: 'status_name', title: '状态', width: 80},
-                {title: '操作', width: 120, toolbar: '#toolbar-permission', fixed: 'right'}
+                {title: '操作', width: 180, toolbar: '#toolbar-permission', fixed: 'right'}
             ]],
             parseData: function(res){
                 return {
@@ -295,6 +295,15 @@
 .required {
     color: #ff0000;
     margin-right: 2px;
+}
+
+.layui-table-cell {
+    height: auto;
+    overflow: visible;
+}
+
+.layui-table-cell .layui-btn {
+    margin-right: 4px;
 }
 </style>
 {% end %}

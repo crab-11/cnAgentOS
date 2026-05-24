@@ -4,6 +4,7 @@ import json
 import tornado.web
 from app.controllers.admin_auth import AdminBaseHandler
 from app.models.user import UserRepository
+from app.models.role import RoleRepository
 
 
 class AdminUserHandler(AdminBaseHandler):
@@ -26,10 +27,12 @@ class AdminUserListHandler(AdminBaseHandler):
         )
 
         for item in result["list"]:
-            if item.get("role") == "admin":
-                item["role_name"] = "管理员"
-            else:
-                item["role_name"] = "普通用户"
+            if not item.get("role_name"):
+                item["role_name"] = "超级管理员" if item.get("role") == "admin" else "普通用户"
+            item["is_system_user"] = item.get("username") == "admin"
+            item["can_delete"] = item.get("username") != "admin"
+            item["can_edit_profile"] = item.get("username") != "admin"
+            item["can_change_password"] = True
 
         self.write({
             "code": 0,
@@ -47,6 +50,7 @@ class AdminUserAddHandler(AdminBaseHandler):
         username = (self.get_body_argument("username", "") or "").strip()
         password = (self.get_body_argument("password", "") or "").strip()
         status = int(self.get_body_argument("status", 0))
+        role_id = int(self.get_body_argument("role_id", 0) or 0)
 
         if not username or not password:
             return self.write({"code": 1, "msg": "用户名和密码不能为空"})
@@ -57,7 +61,22 @@ class AdminUserAddHandler(AdminBaseHandler):
         if len(password) < 6:
             return self.write({"code": 1, "msg": "密码长度不能少于6个字符"})
 
-        success = UserRepository.create_user(username, password, status=status)
+        if username == "admin":
+            return self.write({"code": 1, "msg": "admin为系统默认用户，不能重复创建"})
+
+        if not role_id:
+            default_role = RoleRepository.get_role_by_name("user")
+            role_id = default_role["id"] if default_role else 0
+
+        if not role_id or not RoleRepository.get_role_by_id(role_id):
+            return self.write({"code": 1, "msg": "请选择有效角色"})
+
+        success = UserRepository.create_user(
+            username=username,
+            password=password,
+            status=status,
+            role_id=role_id
+        )
 
         if success:
             return self.write({"code": 0, "msg": "用户创建成功"})
@@ -72,6 +91,7 @@ class AdminUserUpdateHandler(AdminBaseHandler):
         username = (self.get_body_argument("username", "") or "").strip()
         password = (self.get_body_argument("password", "") or "").strip()
         status = int(self.get_body_argument("status", 0))
+        role_id = int(self.get_body_argument("role_id", 0) or 0)
 
         if not user_id:
             return self.write({"code": 1, "msg": "用户ID无效"})
@@ -87,13 +107,29 @@ class AdminUserUpdateHandler(AdminBaseHandler):
             return self.write({"code": 1, "msg": "密码长度不能少于6个字符"})
 
         update_password = password if password else None
+        is_admin_user = current_user["username"] == "admin"
+
+        if is_admin_user:
+            if not update_password:
+                return self.write({"code": 1, "msg": "admin为系统默认用户，只允许修改密码"})
+
+            username = current_user["username"]
+            status = current_user["status"]
+            role_id = None
+        else:
+            if not role_id:
+                return self.write({"code": 1, "msg": "请选择有效角色"})
+            role = RoleRepository.get_role_by_id(role_id)
+            if not role:
+                return self.write({"code": 1, "msg": "角色不存在"})
 
         try:
             success = UserRepository.update_user(
                 user_id=user_id,
                 username=username,
                 password=update_password,
-                status=status
+                status=status,
+                role_id=role_id
             )
 
             if success:
@@ -113,6 +149,10 @@ class AdminUserDeleteHandler(AdminBaseHandler):
 
         if not user_id:
             return self.write({"code": 1, "msg": "用户ID无效"})
+
+        target_user = UserRepository.get_user_by_id(user_id)
+        if target_user and target_user["username"] == "admin":
+            return self.write({"code": 1, "msg": "admin为系统默认用户，不能删除"})
 
         current_user = self.get_current_user()
         user_to_delete = UserRepository.get_user_by_username(current_user)
@@ -143,6 +183,11 @@ class AdminUserBatchDeleteHandler(AdminBaseHandler):
 
         if not user_ids or not isinstance(user_ids, list):
             return self.write({"code": 1, "msg": "请选择要删除的用户"})
+
+        for user_id in user_ids:
+            user = UserRepository.get_user_by_id(int(user_id))
+            if user and user["username"] == "admin":
+                return self.write({"code": 1, "msg": "admin为系统默认用户，不能删除"})
 
         current_user = self.get_current_user()
         user_info = UserRepository.get_user_by_username(current_user)

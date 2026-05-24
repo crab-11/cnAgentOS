@@ -130,7 +130,7 @@
                 {field: 'permission_count', title: '权限数', width: 80},
                 {field: 'status_name', title: '状态', width: 80},
                 {field: 'create_at', title: '创建时间', width: 180},
-                {title: '操作', width: 200, toolbar: '#toolbar-role', fixed: 'right'}
+                {title: '操作', width: 260, toolbar: '#toolbar-role', fixed: 'right'}
             ]],
             parseData: function(res){
                 return {
@@ -357,6 +357,15 @@
 }
 .perm-item:hover {
     background-color: #f5f5f5;
+}
+
+.layui-table-cell {
+    height: auto;
+    overflow: visible;
+}
+
+.layui-table-cell .layui-btn {
+    margin-right: 4px;
 }
 </style>
 {% end %}

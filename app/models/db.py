@@ -125,6 +125,17 @@ def init_db():
                 ("user", "普通用户", "普通用户角色，默认权限", 0, 1)
             )
 
+        conn.execute(
+            """
+            UPDATE roles
+            SET display_name = '超级管理员',
+                description = '系统超级管理员，拥有所有权限',
+                is_system = 1,
+                status = 1
+            WHERE name = 'admin'
+            """
+        )
+
         cursor = conn.execute("SELECT COUNT(*) FROM permissions")
         if cursor.fetchone()[0] == 0:
             conn.execute("INSERT INTO permissions(name, display_name, code, category, icon, url, sort_order) VALUES(?, ?, ?, ?, ?, ?, ?)",
@@ -145,3 +156,15 @@ def init_db():
                 ("瞭望源管理", "瞭望源管理", "lookout_source", "menu", "fas fa-globe", "/admin/lookout/source", 301))
 
             conn.execute("INSERT INTO role_permissions(role_id, permission_id) SELECT 1, id FROM permissions")
+
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO user_roles(user_id, role_id)
+            SELECT u.id, r.id
+            FROM users u
+            INNER JOIN roles r ON r.name = u.role
+            WHERE NOT EXISTS (
+                SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id
+            )
+            """
+        )

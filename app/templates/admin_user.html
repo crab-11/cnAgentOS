@@ -49,6 +49,14 @@
                 <input type="password" name="password" id="form-password" placeholder="请输入密码" class="layui-input" autocomplete="new-password">
             </div>
         </div>
+        <div class="layui-form-item" id="role-item">
+            <label class="layui-form-label"><i class="required">*</i>角色</label>
+            <div class="layui-input-block">
+                <select name="role_id" id="form-role" lay-verify="required">
+                    <option value="">请选择角色</option>
+                </select>
+            </div>
+        </div>
         <div class="layui-form-item">
             <label class="layui-form-label">状态</label>
             <div class="layui-input-block">
@@ -98,7 +106,7 @@
                 {type: 'checkbox', fixed: 'left'},
                 {field: 'id', title: 'ID', width: 80, sort: true, fixed: 'left'},
                 {field: 'username', title: '用户名', width: 180},
-                {field: 'role_name', title: '角色', width: 120},
+                {field: 'role_name', title: '角色', width: 150},
                 {field: 'status', title: '状态', width: 100, templet: function(d){
                     return d.status === 1 ? '<span class="layui-badge layui-bg-green">正常</span>' : '<span class="layui-badge layui-bg-gray">禁用</span>';
                 }},
@@ -111,7 +119,13 @@
                     var minute = date.getMinutes().toString().padStart(2, '0');
                     return year + '-' + month + '-' + day + ' ' + hour + ':' + minute;
                 }},
-                {title: '操作', width: 180, toolbar: '#toolbar-user', fixed: 'right'}
+                {title: '操作', width: 220, fixed: 'right', templet: function(d){
+                    if(d.username === 'admin'){
+                        return '<a class="layui-btn layui-btn-xs" lay-event="edit"><i class="fas fa-key"></i> 改密码</a>';
+                    }
+                    return '<a class="layui-btn layui-btn-xs" lay-event="edit"><i class="fas fa-edit"></i> 编辑</a>' +
+                           '<a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete"><i class="fas fa-trash"></i> 删除</a>';
+                }}
             ]],
             parseData: function(res){
                 return {
@@ -124,6 +138,26 @@
             cellMinWidth: 80
         });
 
+        function loadRoleOptions(selectedRoleId, callback){
+            $.get('/admin/api/role/list', {page: 1, limit: 1000}, function(res){
+                var options = '<option value="">请选择角色</option>';
+                if(res.code === 0 && res.data && res.data.list){
+                    $.each(res.data.list, function(i, role){
+                        if(role.status !== 1){
+                            return;
+                        }
+                        var selected = String(role.id) === String(selectedRoleId) || (!selectedRoleId && role.name === 'user') ? ' selected' : '';
+                        options += '<option value="' + role.id + '"' + selected + '>' + role.display_name + '</option>';
+                    });
+                }
+                $('#form-role').html(options);
+                form.render('select');
+                if(callback){
+                    callback();
+                }
+            });
+        }
+
         $('#btn-search').on('click', function(){
             var username = $('#search-username').val();
             table.reload('user-table', {
@@ -135,14 +169,20 @@
         $('#btn-add').on('click', function(){
             $('#user-form')[0].reset();
             $('#form-id').val('');
+            $('#form-username').prop('readonly', false);
+            $('#form-password').attr('placeholder', '请输入密码').attr('lay-verify', 'required');
+            $('#form-role').prop('disabled', false);
+            $('input[name="status"]').prop('disabled', false);
             $('input[name="status"]').prop('checked', true);
-            form.render();
-            layer.open({
-                type: 1,
-                title: '<i class="fas fa-user-plus" style="margin-right:8px;"></i>新增用户',
-                area: ['480px', '340px'],
-                skin: 'layui-layer-admin',
-                content: $('#user-form-dialog')
+            loadRoleOptions('', function(){
+                form.render();
+                layer.open({
+                    type: 1,
+                    title: '<i class="fas fa-user-plus" style="margin-right:8px;"></i>新增用户',
+                    area: ['500px', '410px'],
+                    skin: 'layui-layer-admin',
+                    content: $('#user-form-dialog')
+                });
             });
         });
 
@@ -171,15 +211,30 @@
             if(obj.event === 'edit'){
                 $('#form-id').val(data.id);
                 $('#form-username').val(data.username);
-                $('#form-password').val('').attr('placeholder', '留空表示不修改密码');
+                $('#form-password').val('').attr('placeholder', data.username === 'admin' ? '请输入新密码' : '留空表示不修改密码');
                 $('input[name="status"]').prop('checked', data.status === 1);
-                form.render();
-                layer.open({
-                    type: 1,
-                    title: '<i class="fas fa-edit" style="margin-right:8px;"></i>编辑用户',
-                    area: ['480px', '340px'],
-                    skin: 'layui-layer-admin',
-                    content: $('#user-form-dialog')
+
+                if(data.username === 'admin'){
+                    $('#form-username').prop('readonly', true);
+                    $('#form-password').attr('lay-verify', 'required');
+                    $('#form-role').prop('disabled', true);
+                    $('input[name="status"]').prop('disabled', true);
+                } else {
+                    $('#form-username').prop('readonly', false);
+                    $('#form-password').removeAttr('lay-verify');
+                    $('#form-role').prop('disabled', false);
+                    $('input[name="status"]').prop('disabled', false);
+                }
+
+                loadRoleOptions(data.role_id, function(){
+                    form.render();
+                    layer.open({
+                        type: 1,
+                        title: data.username === 'admin' ? '<i class="fas fa-key" style="margin-right:8px;"></i>修改admin密码' : '<i class="fas fa-edit" style="margin-right:8px;"></i>编辑用户',
+                        area: ['500px', '410px'],
+                        skin: 'layui-layer-admin',
+                        content: $('#user-form-dialog')
+                    });
                 });
             } else if(obj.event === 'delete'){
                 if(data.username === currentUsername){
@@ -264,6 +319,15 @@
 .required {
     color: #ff0000;
     margin-right: 2px;
+}
+
+.layui-table-cell {
+    height: auto;
+    overflow: visible;
+}
+
+.layui-table-cell .layui-btn {
+    margin-right: 4px;
 }
 </style>
 {% end %}
