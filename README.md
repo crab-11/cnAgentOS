@@ -107,6 +107,11 @@ python main.py
 - 采集结果自动写入数据仓库
 - 数据仓库支持按来源、关键字、标题、摘要检索
 - 数据仓库支持单条删除、批量删除
+- 数据仓库支持单条或批量 AI 深度采集
+- AI 深度采集会生成任务日志、简单统计和正文明细
+- 数据仓库列表显示深度采集状态
+- 数据仓库列表按深采状态显示“查看详情 / 快速预览 / 生成中 / 采集失败 / 未生成”
+- 提供独立深采详情页，支持查看 AI 摘要、关键词、实体识别、正文摘录和正文长度统计
 - 采集地址默认拦截本地/内网地址
 
 ## 主要目录结构
@@ -142,7 +147,8 @@ cnAgentOS/
 │   │   ├── admin_role.html         # 角色管理页
 │   │   ├── admin_permission.html   # 功能管理页
 │   │   ├── admin_lookout_source.html # 瞭望源管理页
-│   │   └── admin_data_warehouse.html # 数据仓库页
+│   │   ├── admin_data_warehouse.html # 数据仓库页
+│   │   └── admin_data_warehouse_detail.html # 深采详情页
 │   └── static/
 │       ├── images/
 │       └── libs/                   # Layui / Bootstrap / Font Awesome
@@ -196,9 +202,14 @@ cnAgentOS/
 | `/admin/api/lookout/collect` | POST | 按关键字/页数/数量执行采集 |
 | `/admin/api/lookout/task/list` | GET | 采集任务日志 |
 | `/admin/data/warehouse` | GET | 数据仓库页面 |
+| `/admin/data/warehouse/detail` | GET | 深采详情页面 |
 | `/admin/api/data/warehouse/list` | GET | 数据仓库列表 |
+| `/admin/api/data/warehouse/detail` | GET | 深采明细 |
 | `/admin/api/data/warehouse/delete` | POST | 删除单条仓库记录 |
 | `/admin/api/data/warehouse/batch-delete` | POST | 批量删除仓库记录 |
+| `/admin/api/data/warehouse/deep-collect` | POST | 启动 AI 深度采集 |
+| `/admin/api/data/warehouse/deep-task` | GET | 深采任务状态与统计 |
+| `/admin/api/data/warehouse/deep-logs` | GET | 深采任务日志 |
 
 ## 数据库表
 
@@ -212,6 +223,17 @@ cnAgentOS/
 | `lookout_sources` | 瞭望源配置、请求头、参数规则、提取规则 |
 | `lookout_records` | 采集入库结果 |
 | `lookout_tasks` | 采集任务日志 |
+| `lookout_record_details` | 深度采集正文与 AI 分析结果 |
+| `lookout_deep_tasks` | 深度采集任务 |
+| `lookout_deep_logs` | 深度采集任务日志 |
+
+## 深采说明
+
+- AI 深度采集依赖两项运行条件：
+- 已在模型引擎中配置默认模型服务。
+- 当前 Python 运行环境已正确安装 `crawl4ai`。
+- 如条件未满足，系统会在深采任务日志中返回明确错误提示，不会静默失败。
+- 深采成功后，可在数据仓库列表通过“查看详情”进入独立详情页，也可使用“快速预览”在当前页弹窗查看。
 
 ## 安全机制
 
@@ -250,7 +272,7 @@ cnAgentOS/
 | 功能管理 | 已完成 | 树形功能维护、权限树、角色映射 |
 | 后台首页 | 预留 | 后续模块完成后统一完善 |
 | 智能问数 | 待规划 | 后续核心业务 |
-| AI 智能瞭望 | 开发中 | 已支持规则化源管理、独立采集工作台、数据入库 |
+| AI 智能瞭望 | 开发中 | 已支持规则化源管理、独立采集工作台、数据入库、深采详情查看 |
 
 ## 后续建议
 
@@ -258,9 +280,9 @@ cnAgentOS/
 - 增加接口级权限校验。
 - 完善注册功能或明确移除注册入口。
 - 增加用户操作日志。
-- 后续可继续补强自动调度采集、AI深度采集、数据清洗规则、任务监控看板与向量库能力。
+- 后续可继续补强 `crawl4ai` 运行环境安装、默认模型配置引导、自动调度采集与更细的数据清洗能力。
 
 ---
 
 **文档更新时间**：2026-05-24  
-**文档版本**：v1.4
+**文档版本**：v1.5

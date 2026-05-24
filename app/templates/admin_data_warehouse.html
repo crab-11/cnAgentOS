@@ -4,7 +4,7 @@
 <div class="toolbar">
     <div class="layui-form-item">
         <div class="layui-inline">
-            <input type="text" id="search-keyword" placeholder="搜索关键字、标题、摘要、来源" class="layui-input" style="width: 300px;">
+            <input type="text" id="search-keyword" placeholder="搜索关键字、标题、摘要、来源" class="layui-input" style="width: 320px;">
         </div>
         <div class="layui-inline">
             <button class="layui-btn" id="btn-search"><i class="fas fa-search"></i> 搜索</button>
@@ -27,7 +27,57 @@
 <script type="text/html" id="warehouse-toolbar">
     <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete"><i class="fas fa-trash"></i> 删除</a>
     <a class="layui-btn layui-btn-warm layui-btn-xs" lay-event="deep"><i class="fas fa-robot"></i> AI深采</a>
+    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="detail"><i class="fas fa-file-alt"></i> 预览</a>
 </script>
+
+<div id="deep-task-dialog" style="display:none; padding:0;">
+    <div style="padding:18px;">
+        <div class="deep-stats-grid">
+            <div class="deep-stat-card">
+                <span>任务状态</span>
+                <strong id="deep-task-status">-</strong>
+            </div>
+            <div class="deep-stat-card">
+                <span>成功/失败</span>
+                <strong id="deep-task-counts">0 / 0</strong>
+            </div>
+            <div class="deep-stat-card">
+                <span>平均正文长度</span>
+                <strong id="deep-task-avg">0</strong>
+            </div>
+            <div class="deep-stat-card">
+                <span>高频关键词</span>
+                <strong id="deep-task-top">-</strong>
+            </div>
+        </div>
+        <div class="layui-card" style="margin-top:14px;">
+            <div class="layui-card-header">采集日志</div>
+            <div class="layui-card-body">
+                <div id="deep-task-logs" class="deep-log-box"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="deep-detail-dialog" style="display:none; padding:18px;">
+    <div class="layui-card" style="margin-bottom:12px;">
+        <div class="layui-card-header">AI 摘要</div>
+        <div class="layui-card-body" id="detail-summary"></div>
+    </div>
+    <div class="layui-card" style="margin-bottom:12px;">
+        <div class="layui-card-header">关键词 / 实体</div>
+        <div class="layui-card-body">
+            <div id="detail-keywords" style="margin-bottom:10px;"></div>
+            <div id="detail-entities"></div>
+        </div>
+    </div>
+    <div class="layui-card">
+        <div class="layui-card-header">正文摘录</div>
+        <div class="layui-card-body">
+            <pre id="detail-text" class="deep-detail-text"></pre>
+        </div>
+    </div>
+</div>
 {% end %}
 
 {% block scripts %}
@@ -36,12 +86,26 @@ layui.use(['table', 'jquery', 'layer'], function(){
     var table = layui.table;
     var $ = layui.jquery;
     var layer = layui.layer;
+    var currentDeepTaskId = null;
+    var pollingTimer = null;
+    var deepDialogIndex = null;
 
     var $menu = $('.sidebar-menu li:has(a:contains("数据管理"))');
     $('.sidebar-menu li').removeClass('active');
     $menu.addClass('active');
     $menu.find('.submenu').show();
     $menu.find('.submenu a:contains("数据仓库")').parent().addClass('active');
+
+    function renderDeepStatus(status){
+        var map = {
+            pending: ['待深采', '#999'],
+            running: ['采集中', '#ffb800'],
+            success: ['已完成', '#16b777'],
+            failed: ['失败', '#ff5722']
+        };
+        var item = map[status] || ['未知', '#666'];
+        return '<span style="color:' + item[1] + ';font-weight:600;">' + item[0] + '</span>';
+    }
 
     function reloadTable() {
         table.reload('warehouse-table', {
@@ -50,8 +114,126 @@ layui.use(['table', 'jquery', 'layer'], function(){
         });
     }
 
-    function deepMessage() {
-        layer.msg('AI深度采集将在后续任务中完成，这里先保留入口。', {icon: 0, time: 2500});
+    function startDeepCollect(ids) {
+        $.post('/admin/api/data/warehouse/deep-collect', {
+            ids: ids.join(','),
+            _xsrf: window.getXsrfToken()
+        }, function(res){
+            layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2, time: 1800});
+            if(res.code === 0) {
+                openDeepTaskDialog(res.data.task_id);
+                reloadTable();
+            }
+        }).fail(function(xhr){
+            layer.msg('启动深采失败：' + (xhr.responseText || xhr.status), {icon: 2});
+        });
+    }
+
+    function openDeepTaskDialog(taskId) {
+        currentDeepTaskId = taskId;
+        if (pollingTimer) {
+            clearInterval(pollingTimer);
+        }
+        $('#deep-task-logs').html('<div class="deep-log-item">任务已启动，等待日志...</div>');
+        $('#deep-task-status').text('启动中');
+        $('#deep-task-counts').text('0 / 0');
+        $('#deep-task-avg').text('0');
+        $('#deep-task-top').text('-');
+        deepDialogIndex = layer.open({
+            type: 1,
+            title: 'AI 深度采集任务 #' + taskId,
+            area: ['860px', '78vh'],
+            content: $('#deep-task-dialog'),
+            cancel: function(){
+                if (pollingTimer) {
+                    clearInterval(pollingTimer);
+                    pollingTimer = null;
+                }
+            }
+        });
+        fetchTaskState();
+        pollingTimer = setInterval(fetchTaskState, 1500);
+    }
+
+    function fetchTaskState() {
+        if (!currentDeepTaskId) return;
+
+        $.get('/admin/api/data/warehouse/deep-task', {task_id: currentDeepTaskId}, function(res){
+            if (res.code !== 0) return;
+            var task = res.data;
+            var summary = task.summary || {};
+            $('#deep-task-status').html(renderDeepStatus(task.status));
+            $('#deep-task-counts').text((task.success_count || 0) + ' / ' + (task.failed_count || 0));
+            $('#deep-task-avg').text(summary.avg_content_length || 0);
+            $('#deep-task-top').text((summary.top_keywords || []).map(function(item){ return item[0]; }).join(' / ') || '-');
+
+            if (task.status === 'success' || task.status === 'failed') {
+                if (pollingTimer) {
+                    clearInterval(pollingTimer);
+                    pollingTimer = null;
+                }
+                reloadTable();
+            }
+        });
+
+        $.get('/admin/api/data/warehouse/deep-logs', {task_id: currentDeepTaskId}, function(res){
+            if (res.code !== 0) return;
+            var html = (res.data || []).map(function(item){
+                var cls = item.level === 'error' ? 'error' : (item.level === 'success' ? 'success' : 'info');
+                return '<div class="deep-log-item ' + cls + '">[' + item.create_at + '] ' + item.message + '</div>';
+            }).join('');
+            $('#deep-task-logs').html(html || '<div class="deep-log-item">暂无日志</div>');
+            var box = document.getElementById('deep-task-logs');
+            box.scrollTop = box.scrollHeight;
+        });
+    }
+
+    function openDetail(recordId) {
+        $.get('/admin/api/data/warehouse/detail', {record_id: recordId}, function(res){
+            if (res.code !== 0) {
+                layer.msg(res.msg, {icon: 0});
+                return;
+            }
+            var detail = res.data;
+            $('#detail-summary').text(detail.ai_summary || '暂无 AI 摘要');
+            var keywords = [];
+            var entities = [];
+            try { keywords = JSON.parse(detail.ai_keywords || '[]'); } catch (e) {}
+            try { entities = JSON.parse(detail.ai_entities || '[]'); } catch (e) {}
+            $('#detail-keywords').html(keywords.length ? keywords.map(function(item){
+                return '<span class="layui-badge layui-bg-blue" style="margin-right:6px;">' + item + '</span>';
+            }).join('') : '<span style="color:#999;">暂无关键词</span>');
+            $('#detail-entities').html(entities.length ? entities.map(function(item){
+                return '<span class="layui-badge-rim" style="margin-right:6px;">' + (item.name || '-') + ' / ' + (item.type || '-') + '</span>';
+            }).join('') : '<span style="color:#999;">暂无实体</span>');
+            $('#detail-text').text(detail.extracted_text || detail.markdown_content || '暂无正文');
+            layer.open({
+                type: 1,
+                title: '深采明细 #' + recordId,
+                area: ['900px', '80vh'],
+                content: $('#deep-detail-dialog')
+            });
+        });
+    }
+
+    function renderDetailEntry(d) {
+        if (d.deep_status === 'success' && d.detail_id) {
+            return [
+                '<div class="deep-entry-cell">',
+                '<a class="layui-btn layui-btn-sm layui-btn-normal" href="/admin/data/warehouse/detail?record_id=' + d.id + '">',
+                '<i class="fas fa-external-link-alt"></i> 查看详情</a>',
+                '<button type="button" class="layui-btn layui-btn-primary layui-btn-xs" lay-event="detail">',
+                '<i class="fas fa-eye"></i> 快速预览</button>',
+                '</div>'
+            ].join('');
+        }
+        if (d.deep_status === 'running') {
+            return '<span class="detail-state state-running"><i class="fas fa-spinner fa-spin"></i> 生成中</span>';
+        }
+        if (d.deep_status === 'failed') {
+            return '<span class="detail-state state-failed"><i class="fas fa-times-circle"></i> 采集失败</span>';
+        }
+        return '<span class="detail-state state-pending"><i class="far fa-circle"></i> 未生成</span>';
     }
 
     table.render({
@@ -63,15 +245,18 @@ layui.use(['table', 'jquery', 'layer'], function(){
             {type: 'checkbox', width: 50},
             {field: 'source_name', title: '来源', width: 150},
             {field: 'keyword', title: '关键字', width: 140, templet: function(d){ return d.keyword || '-'; }},
-            {field: 'title', title: '标题', minWidth: 280},
-            {field: 'summary', title: '摘要', minWidth: 320, templet: function(d){ return d.summary || '-'; }},
-            {field: 'content_url', title: '原文链接', minWidth: 180, templet: function(d){
+            {field: 'title', title: '标题', minWidth: 260},
+            {field: 'summary', title: '摘要', minWidth: 260, templet: function(d){ return d.summary || '-'; }},
+            {field: 'deep_status', title: '深采状态', width: 100, templet: function(d){ return renderDeepStatus(d.deep_status); }},
+            {field: 'detail_id', title: '深采详情', width: 180, templet: function(d){ return renderDetailEntry(d); }},
+            {field: 'content_length', title: '深采长度', width: 90, templet: function(d){ return d.content_length || '-'; }},
+            {field: 'content_url', title: '原文链接', minWidth: 150, templet: function(d){
                 if(!d.content_url){ return '-'; }
                 return '<a href="' + d.content_url + '" target="_blank" style="color:#1e9fff;">查看原文</a>';
             }},
-            {field: 'published_at', title: '发布时间', width: 160, templet: function(d){ return d.published_at || '-'; }},
+            {field: 'published_at', title: '发布时间', width: 140, templet: function(d){ return d.published_at || '-'; }},
             {field: 'create_at', title: '入库时间', width: 170},
-            {title: '操作', width: 150, toolbar: '#warehouse-toolbar', fixed: 'right'}
+            {title: '操作', width: 180, toolbar: '#warehouse-toolbar', fixed: 'right'}
         ]],
         parseData: function(res){
             return {code: res.code, msg: res.msg, count: res.data.total, data: res.data.list};
@@ -91,13 +276,27 @@ layui.use(['table', 'jquery', 'layer'], function(){
                 layer.close(index);
             });
         } else if(obj.event === 'deep'){
-            deepMessage();
+            startDeepCollect([data.id]);
+        } else if(obj.event === 'detail'){
+            if(!(data.deep_status === 'success' && data.detail_id)){
+                layer.msg('该记录暂未生成可预览的深采详情', {icon: 0});
+                return;
+            }
+            openDetail(data.id);
         }
     });
 
     $('#btn-search').on('click', reloadTable);
     $('#btn-back-source').on('click', function(){ window.location.href = '/admin/lookout/source'; });
-    $('#btn-ai-deep').on('click', deepMessage);
+    $('#btn-ai-deep').on('click', function(){
+        var checkStatus = table.checkStatus('warehouse-table');
+        var ids = (checkStatus.data || []).map(function(item){ return item.id; });
+        if(!ids.length){
+            layer.msg('请至少选择一条记录', {icon: 0});
+            return;
+        }
+        startDeepCollect(ids);
+    });
     $('#btn-batch-delete').on('click', function(){
         var checkStatus = table.checkStatus('warehouse-table');
         var ids = (checkStatus.data || []).map(function(item){ return item.id; });
@@ -122,4 +321,93 @@ layui.use(['table', 'jquery', 'layer'], function(){
     $(document).on('keyup', '#search-keyword', function(e){ if(e.keyCode === 13){ reloadTable(); } });
 });
 </script>
+<style>
+.deep-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.deep-stat-card {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: #f7f9fc;
+    border: 1px solid #e8edf5;
+}
+
+.deep-stat-card span {
+    display: block;
+    margin-bottom: 8px;
+    color: #75829a;
+    font-size: 12px;
+}
+
+.deep-stat-card strong {
+    font-size: 18px;
+    color: #223046;
+}
+
+.deep-log-box {
+    min-height: 280px;
+    max-height: 420px;
+    overflow-y: auto;
+    border-radius: 8px;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 12px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.deep-log-item {
+    padding: 4px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.08);
+}
+
+.deep-log-item.error {
+    color: #ff9b9b;
+}
+
+.deep-log-item.success {
+    color: #7bf1c6;
+}
+
+.deep-detail-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 360px;
+    overflow-y: auto;
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.deep-entry-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.detail-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.state-running {
+    color: #d97706;
+}
+
+.state-failed {
+    color: #dc2626;
+}
+
+.state-pending {
+    color: #94a3b8;
+}
+</style>
 {% end %}

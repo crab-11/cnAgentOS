@@ -1,0 +1,360 @@
+{% extends "admin_base.html" %}
+
+{% block body %}
+<div class="detail-shell">
+    <div class="detail-topbar">
+        <div>
+            <p class="detail-eyebrow">DATA WAREHOUSE / DEEP DETAIL</p>
+            <h1>深度采集详情</h1>
+            <p class="detail-subtitle">查看 AI 深采后的摘要、关键词、实体和正文解析结果。</p>
+        </div>
+        <div class="detail-actions">
+            <button class="btn btn-outline-primary" id="btn-back-list">
+                <i class="fas fa-arrow-left"></i> 返回数据仓库
+            </button>
+            <button class="btn btn-primary" id="btn-refresh-detail">
+                <i class="fas fa-sync-alt"></i> 刷新详情
+            </button>
+        </div>
+    </div>
+
+    <div class="detail-hero" id="detail-hero">
+        <div class="detail-hero-title">
+            <span class="detail-chip">记录ID #{{ record_id }}</span>
+            <h2 id="detail-title">正在加载深采结果...</h2>
+            <p id="detail-source-url" class="detail-linkline">请稍候，正在读取关联明细数据。</p>
+        </div>
+        <div class="detail-hero-stats">
+            <div class="detail-stat">
+                <span>正文长度</span>
+                <strong id="detail-content-length">-</strong>
+            </div>
+            <div class="detail-stat">
+                <span>段落估算</span>
+                <strong id="detail-paragraph-count">-</strong>
+            </div>
+            <div class="detail-stat">
+                <span>关键词数量</span>
+                <strong id="detail-keyword-count">-</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <div class="detail-panel">
+                <div class="panel-head">
+                    <span>AI 摘要</span>
+                </div>
+                <div class="panel-body">
+                    <div id="detail-summary" class="detail-summary">-</div>
+                </div>
+            </div>
+
+            <div class="detail-panel">
+                <div class="panel-head">
+                    <span>关键词</span>
+                </div>
+                <div class="panel-body">
+                    <div id="detail-keywords" class="tag-wrap"></div>
+                </div>
+            </div>
+
+            <div class="detail-panel">
+                <div class="panel-head">
+                    <span>实体识别</span>
+                </div>
+                <div class="panel-body">
+                    <div id="detail-entities" class="tag-wrap"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="detail-panel detail-panel-tall">
+                <div class="panel-head">
+                    <span>正文摘录</span>
+                </div>
+                <div class="panel-body">
+                    <pre id="detail-text" class="detail-text">-</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% end %}
+
+{% block scripts %}
+<script>
+layui.use(['jquery', 'layer'], function(){
+    var $ = layui.jquery;
+    var layer = layui.layer;
+    var recordId = {{ record_id }};
+
+    var $menu = $('.sidebar-menu li:has(a:contains("数据管理"))');
+    $('.sidebar-menu li').removeClass('active');
+    $menu.addClass('active');
+    $menu.find('.submenu').show();
+    $menu.find('.submenu a:contains("数据仓库")').parent().addClass('active');
+
+    function renderTags($target, items, kind) {
+        if (!items.length) {
+            $target.html('<span class="empty-tip">暂无数据</span>');
+            return;
+        }
+        if (kind === 'entity') {
+            $target.html(items.map(function(item){
+                return '<span class="entity-pill">' + (item.name || '-') + '<em>' + (item.type || '-') + '</em></span>';
+            }).join(''));
+            return;
+        }
+        $target.html(items.map(function(item){
+            return '<span class="keyword-pill">' + item + '</span>';
+        }).join(''));
+    }
+
+    function loadDetail() {
+        if (!recordId) {
+            layer.msg('记录ID无效', {icon: 2});
+            return;
+        }
+        $.get('/admin/api/data/warehouse/detail', {record_id: recordId}, function(res){
+            if (res.code !== 0) {
+                $('#detail-title').text('该记录暂未生成深采详情');
+                $('#detail-source-url').text(res.msg || '暂无可展示的深采结果');
+                $('#detail-summary').text('暂无 AI 摘要');
+                $('#detail-text').text('暂无正文');
+                renderTags($('#detail-keywords'), [], 'keyword');
+                renderTags($('#detail-entities'), [], 'entity');
+                layer.msg(res.msg, {icon: 0});
+                return;
+            }
+
+            var detail = res.data || {};
+            var keywords = [];
+            var entities = [];
+            var stats = {};
+            try { keywords = JSON.parse(detail.ai_keywords || '[]'); } catch (e) {}
+            try { entities = JSON.parse(detail.ai_entities || '[]'); } catch (e) {}
+            try { stats = JSON.parse(detail.ai_stats || '{}'); } catch (e) {}
+
+            $('#detail-title').text(detail.crawl_title || '已生成深采结果');
+            if (detail.source_url) {
+                $('#detail-source-url').html('<a href="' + detail.source_url + '" target="_blank">' + detail.source_url + '</a>');
+            } else {
+                $('#detail-source-url').text('未记录原始正文链接');
+            }
+            $('#detail-content-length').text(detail.content_length || stats.content_length || 0);
+            $('#detail-paragraph-count').text(stats.paragraph_count || 0);
+            $('#detail-keyword-count').text(keywords.length);
+            $('#detail-summary').text(detail.ai_summary || '暂无 AI 摘要');
+            $('#detail-text').text(detail.extracted_text || detail.markdown_content || '暂无正文');
+            renderTags($('#detail-keywords'), keywords, 'keyword');
+            renderTags($('#detail-entities'), entities, 'entity');
+        }).fail(function(xhr){
+            layer.msg('读取深采详情失败：' + (xhr.responseText || xhr.status), {icon: 2});
+        });
+    }
+
+    $('#btn-back-list').on('click', function(){
+        window.location.href = '/admin/data/warehouse';
+    });
+    $('#btn-refresh-detail').on('click', loadDetail);
+
+    loadDetail();
+});
+</script>
+<style>
+.detail-shell {
+    padding: 8px 2px 4px;
+}
+
+.detail-topbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+    margin-bottom: 18px;
+}
+
+.detail-eyebrow {
+    margin: 0 0 8px;
+    color: #ec6b2d;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+}
+
+.detail-topbar h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    color: #1f2937;
+    font-weight: 800;
+}
+
+.detail-subtitle {
+    margin: 0;
+    color: #64748b;
+}
+
+.detail-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.detail-hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 18px;
+    padding: 20px 24px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 55%, #38bdf8 100%);
+    color: #fff;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+}
+
+.detail-chip {
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.14);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+}
+
+.detail-hero h2 {
+    margin: 0 0 10px;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.detail-linkline,
+.detail-linkline a {
+    color: rgba(255,255,255,0.86);
+    word-break: break-all;
+}
+
+.detail-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(100px, 1fr));
+    gap: 12px;
+    min-width: 320px;
+}
+
+.detail-stat {
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.14);
+    backdrop-filter: blur(10px);
+}
+
+.detail-stat span {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+}
+
+.detail-stat strong {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.detail-panel {
+    margin-bottom: 16px;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+.detail-panel-tall .panel-body {
+    min-height: 560px;
+}
+
+.panel-head {
+    padding: 14px 18px;
+    background: linear-gradient(90deg, #f8fafc, #eef6ff);
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.panel-body {
+    padding: 18px;
+}
+
+.detail-summary {
+    color: #334155;
+    line-height: 1.8;
+}
+
+.tag-wrap {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.keyword-pill,
+.entity-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+}
+
+.keyword-pill {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+.entity-pill {
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+}
+
+.entity-pill em {
+    font-style: normal;
+    opacity: 0.8;
+}
+
+.detail-text {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 760px;
+    overflow-y: auto;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: #334155;
+    line-height: 1.8;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+}
+
+.empty-tip {
+    color: #94a3b8;
+}
+
+@media (max-width: 992px) {
+    .detail-topbar,
+    .detail-hero {
+        flex-direction: column;
+    }
+
+    .detail-hero-stats {
+        width: 100%;
+        min-width: 0;
+    }
+}
+</style>
+{% end %}

@@ -4,6 +4,7 @@ import json
 import re
 import socket
 import sqlite3
+import statistics
 import urllib.parse
 import xml.etree.ElementTree as ET
 from html import unescape
@@ -12,6 +13,7 @@ import tornado.escape
 import tornado.httpclient
 
 from app.models.db import get_connection
+from app.models.model_service import ModelServiceRepository
 
 
 class LookoutSourceRepository:
@@ -214,9 +216,10 @@ class LookoutRecordRepository:
         with get_connection() as conn:
             rows = conn.execute(
                 """
-                SELECT lr.*, ls.name AS source_name
+                SELECT lr.*, ls.name AS source_name, lrd.id AS detail_id, lrd.content_length
                 FROM lookout_records lr
                 INNER JOIN lookout_sources ls ON ls.id = lr.source_id
+                LEFT JOIN lookout_record_details lrd ON lrd.record_id = lr.id
                 """
                 + where_sql +
                 """
@@ -241,6 +244,38 @@ class LookoutRecordRepository:
         }
 
     @staticmethod
+    def get_records_by_ids(record_ids):
+        if not record_ids:
+            return []
+        placeholders = ",".join("?" for _ in record_ids)
+        with get_connection() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT lr.*, ls.name AS source_name
+                FROM lookout_records lr
+                INNER JOIN lookout_sources ls ON ls.id = lr.source_id
+                WHERE lr.id IN ({placeholders})
+                ORDER BY lr.id ASC
+                """,
+                record_ids
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def update_deep_status(record_id, status, collected=False):
+        with get_connection() as conn:
+            if collected:
+                conn.execute(
+                    "UPDATE lookout_records SET deep_status = ?, deep_collected_at = datetime('now') WHERE id = ?",
+                    (status, record_id)
+                )
+            else:
+                conn.execute(
+                    "UPDATE lookout_records SET deep_status = ? WHERE id = ?",
+                    (status, record_id)
+                )
+
+    @staticmethod
     def delete_record(record_id):
         with get_connection() as conn:
             cursor = conn.execute("DELETE FROM lookout_records WHERE id = ?", (record_id,))
@@ -257,6 +292,72 @@ class LookoutRecordRepository:
                 record_ids
             )
             return cursor.rowcount
+
+
+class LookoutRecordDetailRepository:
+    @staticmethod
+    def upsert_detail(record_id, source_url, crawl_title, markdown_content, html_content,
+                      extracted_text, ai_summary, ai_keywords, ai_entities, ai_stats,
+                      model_service_id, content_length):
+        with get_connection() as conn:
+            existing = conn.execute(
+                "SELECT id FROM lookout_record_details WHERE record_id = ?",
+                (record_id,)
+            ).fetchone()
+            payload = (
+                source_url,
+                crawl_title,
+                markdown_content,
+                html_content,
+                extracted_text,
+                ai_summary,
+                ai_keywords,
+                ai_entities,
+                ai_stats,
+                model_service_id,
+                content_length
+            )
+            if existing:
+                conn.execute(
+                    """
+                    UPDATE lookout_record_details
+                    SET source_url = ?,
+                        crawl_title = ?,
+                        markdown_content = ?,
+                        html_content = ?,
+                        extracted_text = ?,
+                        ai_summary = ?,
+                        ai_keywords = ?,
+                        ai_entities = ?,
+                        ai_stats = ?,
+                        model_service_id = ?,
+                        content_length = ?,
+                        update_at = datetime('now')
+                    WHERE record_id = ?
+                    """,
+                    payload + (record_id,)
+                )
+                return existing["id"]
+            cursor = conn.execute(
+                """
+                INSERT INTO lookout_record_details(
+                    record_id, source_url, crawl_title, markdown_content, html_content,
+                    extracted_text, ai_summary, ai_keywords, ai_entities, ai_stats,
+                    model_service_id, content_length
+                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (record_id,) + payload
+            )
+            return cursor.lastrowid
+
+    @staticmethod
+    def get_detail_by_record_id(record_id):
+        with get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM lookout_record_details WHERE record_id = ?",
+                (record_id,)
+            ).fetchone()
+        return dict(row) if row else None
 
 
 class LookoutTaskRepository:
@@ -308,6 +409,185 @@ class LookoutTaskRepository:
             "list": [dict(row) for row in rows],
             "total": total
         }
+
+
+class LookoutDeepTaskRepository:
+    @staticmethod
+    def create_task(total_count, model_service_id=None):
+        with get_connection() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO lookout_deep_tasks(total_count, model_service_id, status)
+                VALUES(?, ?, 'running')
+                """,
+                (total_count, model_service_id)
+            )
+            return cursor.lastrowid
+
+    @staticmethod
+    def add_log(task_id, message, level="info", record_id=None):
+        with get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO lookout_deep_logs(task_id, record_id, level, message)
+                VALUES(?, ?, ?, ?)
+                """,
+                (task_id, record_id, level, message)
+            )
+
+    @staticmethod
+    def update_counts(task_id, success_count, failed_count):
+        with get_connection() as conn:
+            conn.execute(
+                "UPDATE lookout_deep_tasks SET success_count = ?, failed_count = ? WHERE id = ?",
+                (success_count, failed_count, task_id)
+            )
+
+    @staticmethod
+    def finish_task(task_id, status, summary_json=None, error_message=None, success_count=0, failed_count=0):
+        with get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE lookout_deep_tasks
+                SET status = ?,
+                    summary_json = ?,
+                    error_message = ?,
+                    success_count = ?,
+                    failed_count = ?,
+                    finish_at = datetime('now')
+                WHERE id = ?
+                """,
+                (status, summary_json, error_message, success_count, failed_count, task_id)
+            )
+
+    @staticmethod
+    def get_task(task_id):
+        with get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM lookout_deep_tasks WHERE id = ?",
+                (task_id,)
+            ).fetchone()
+        item = dict(row) if row else None
+        if item and item.get("summary_json"):
+            try:
+                item["summary"] = json.loads(item["summary_json"])
+            except json.JSONDecodeError:
+                item["summary"] = None
+        return item
+
+    @staticmethod
+    def get_logs(task_id):
+        with get_connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM lookout_deep_logs WHERE task_id = ? ORDER BY id ASC",
+                (task_id,)
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+
+class LookoutDeepCollector:
+    @staticmethod
+    def validate_runtime():
+        service = ModelServiceRepository.get_default_service()
+        if not service:
+            raise RuntimeError("未配置默认模型服务，请先在模型引擎中设置默认模型")
+        try:
+            from crawl4ai import AsyncWebCrawler  # noqa: F401
+        except Exception:
+            raise RuntimeError("未安装 crawl4ai，请先安装后再执行 AI 深度采集")
+        return service
+
+    @staticmethod
+    async def run_task(task_id, record_ids):
+        success_count = 0
+        failed_count = 0
+        content_lengths = []
+        keyword_counter = {}
+
+        try:
+            service = LookoutDeepCollector.validate_runtime()
+            LookoutDeepTaskRepository.add_log(task_id, f"已加载默认模型服务：{service['name']} / {service['model_name']}")
+        except Exception as e:
+            LookoutDeepTaskRepository.add_log(task_id, str(e), level="error")
+            LookoutDeepTaskRepository.finish_task(task_id, "failed", error_message=str(e), failed_count=len(record_ids))
+            return
+
+        records = LookoutRecordRepository.get_records_by_ids(record_ids)
+        if not records:
+            message = "未找到可执行深度采集的记录"
+            LookoutDeepTaskRepository.add_log(task_id, message, level="error")
+            LookoutDeepTaskRepository.finish_task(task_id, "failed", error_message=message, failed_count=len(record_ids))
+            return
+
+        for record in records:
+            record_id = record["id"]
+            target_url = record.get("content_url") or record.get("source_page_url")
+            if not target_url:
+                failed_count += 1
+                LookoutRecordRepository.update_deep_status(record_id, "failed")
+                LookoutDeepTaskRepository.add_log(task_id, "记录缺少可抓取链接", level="error", record_id=record_id)
+                LookoutDeepTaskRepository.update_counts(task_id, success_count, failed_count)
+                continue
+
+            try:
+                LookoutRecordRepository.update_deep_status(record_id, "running")
+                LookoutDeepTaskRepository.add_log(task_id, f"开始深采：{record['title']}", record_id=record_id)
+                crawl_result = await _crawl_record_detail(target_url)
+                extracted_text = _pick_extracted_text(crawl_result)
+                content_length = len(extracted_text or "")
+                content_lengths.append(content_length)
+                LookoutDeepTaskRepository.add_log(task_id, f"crawl4ai 抓取完成，正文长度 {content_length} 字符", record_id=record_id)
+
+                ai_result = await _deep_analyze_with_model(service, record, extracted_text)
+                keywords = ai_result.get("keywords") or []
+                for item in keywords:
+                    keyword_counter[item] = keyword_counter.get(item, 0) + 1
+
+                LookoutRecordDetailRepository.upsert_detail(
+                    record_id=record_id,
+                    source_url=target_url,
+                    crawl_title=crawl_result.get("title"),
+                    markdown_content=crawl_result.get("markdown"),
+                    html_content=crawl_result.get("html"),
+                    extracted_text=extracted_text,
+                    ai_summary=ai_result.get("summary"),
+                    ai_keywords=json.dumps(keywords, ensure_ascii=False),
+                    ai_entities=json.dumps(ai_result.get("entities") or [], ensure_ascii=False),
+                    ai_stats=json.dumps({
+                        "content_length": content_length,
+                        "paragraph_count": extracted_text.count("\n") + 1 if extracted_text else 0
+                    }, ensure_ascii=False),
+                    model_service_id=service["id"],
+                    content_length=content_length
+                )
+                LookoutRecordRepository.update_deep_status(record_id, "success", collected=True)
+                LookoutDeepTaskRepository.add_log(task_id, "AI 解析完成并已保存明细", level="success", record_id=record_id)
+                success_count += 1
+            except Exception as e:
+                failed_count += 1
+                LookoutRecordRepository.update_deep_status(record_id, "failed")
+                LookoutDeepTaskRepository.add_log(task_id, f"深采失败：{str(e)}", level="error", record_id=record_id)
+
+            LookoutDeepTaskRepository.update_counts(task_id, success_count, failed_count)
+
+        summary = {
+            "total_count": len(records),
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "avg_content_length": int(statistics.mean(content_lengths)) if content_lengths else 0,
+            "max_content_length": max(content_lengths) if content_lengths else 0,
+            "top_keywords": sorted(keyword_counter.items(), key=lambda item: item[1], reverse=True)[:8]
+        }
+        status = "success" if success_count > 0 else "failed"
+        LookoutDeepTaskRepository.add_log(task_id, f"任务完成：成功 {success_count} 条，失败 {failed_count} 条", level="success" if success_count else "error")
+        LookoutDeepTaskRepository.finish_task(
+            task_id,
+            status,
+            summary_json=json.dumps(summary, ensure_ascii=False),
+            success_count=success_count,
+            failed_count=failed_count,
+            error_message=None if success_count else "全部记录深度采集失败"
+        )
 
 
 class LookoutCollector:
@@ -380,6 +660,120 @@ def _parse_json_object(text):
         return data if isinstance(data, dict) else {}
     except json.JSONDecodeError:
         return {}
+
+
+async def _crawl_record_detail(target_url):
+    from crawl4ai import AsyncWebCrawler
+
+    async with AsyncWebCrawler() as crawler:
+        result = await crawler.arun(url=target_url)
+
+    markdown = getattr(result, "markdown", None)
+    html = getattr(result, "html", None)
+    title = getattr(result, "title", None)
+    if not title and isinstance(result, dict):
+        title = result.get("title")
+    if not markdown and isinstance(result, dict):
+        markdown = result.get("markdown")
+    if not html and isinstance(result, dict):
+        html = result.get("html")
+    return {
+        "title": title,
+        "markdown": markdown,
+        "html": html
+    }
+
+
+def _pick_extracted_text(crawl_result):
+    markdown = crawl_result.get("markdown") or ""
+    if markdown:
+        return markdown.strip()
+    html = crawl_result.get("html") or ""
+    return _strip_html(html)
+
+
+async def _deep_analyze_with_model(service, record, extracted_text):
+    text = (extracted_text or "")[:12000]
+    prompt = (
+        "你是信息抽取助手。请基于给定正文，返回 JSON 对象，字段必须包含："
+        "summary(字符串，120字内)、keywords(字符串数组，最多8个)、"
+        "entities(对象数组，每项含name和type)、risk_points(字符串数组)。"
+        "不要输出 JSON 之外的任何文字。\n\n"
+        f"标题：{record.get('title') or ''}\n"
+        f"原摘要：{record.get('summary') or ''}\n"
+        f"正文：{text}"
+    )
+    payload = {
+        "model": service["model_name"],
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+        "max_tokens": min(int(service.get("max_tokens") or 1024), 1200),
+        "stream": False
+    }
+    request = tornado.httpclient.HTTPRequest(
+        url=service["endpoint_url"],
+        method="POST",
+        headers={
+            "Authorization": "Bearer " + service["api_key"],
+            "Content-Type": "application/json"
+        },
+        body=tornado.escape.json_encode(payload),
+        request_timeout=120,
+        validate_cert=True
+    )
+    client = tornado.httpclient.AsyncHTTPClient()
+    response = await client.fetch(request, raise_error=False)
+    if response.code < 200 or response.code >= 300:
+        body = (response.body or b"").decode("utf-8", errors="ignore")
+        raise RuntimeError(f"模型调用失败：HTTP {response.code} {body[:200]}")
+
+    body = (response.body or b"{}").decode("utf-8", errors="ignore")
+    data = json.loads(body)
+    content = _extract_model_content(data)
+    result = _parse_model_json(content)
+    ModelServiceRepository.record_call(
+        service_id=service["id"],
+        model_name=service["model_name"],
+        prompt_tokens=_estimate_tokens(prompt),
+        completion_tokens=_estimate_tokens(content),
+        total_tokens=_estimate_tokens(prompt) + _estimate_tokens(content),
+        latency_ms=0,
+        success=1
+    )
+    return result
+
+
+def _extract_model_content(data):
+    choices = data.get("choices") or []
+    if not choices:
+        return ""
+    first = choices[0]
+    message = first.get("message") or {}
+    if message.get("content") is not None:
+        return message.get("content") or ""
+    return first.get("text") or ""
+
+
+def _parse_model_json(content):
+    content = (content or "").strip()
+    if content.startswith("```"):
+        content = re.sub(r"^```(?:json)?", "", content).strip()
+        content = re.sub(r"```$", "", content).strip()
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        raise RuntimeError("模型未返回合法 JSON")
+    return {
+        "summary": str(data.get("summary") or ""),
+        "keywords": [str(item) for item in (data.get("keywords") or [])][:8],
+        "entities": data.get("entities") or [],
+        "risk_points": data.get("risk_points") or []
+    }
+
+
+def _estimate_tokens(text):
+    text = text or ""
+    return max(1, int(len(text) / 3.5)) if text else 0
 
 
 def _build_record_hash(item):

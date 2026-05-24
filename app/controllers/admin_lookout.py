@@ -1,11 +1,15 @@
 import json
 
+import tornado.ioloop
 import tornado.web
 
 from app.controllers.admin_auth import AdminBaseHandler
 from app.models.lookout import (
     LookoutCollector,
+    LookoutDeepCollector,
+    LookoutDeepTaskRepository,
     LookoutRecordRepository,
+    LookoutRecordDetailRepository,
     LookoutSourceRepository,
     LookoutTaskRepository
 )
@@ -213,6 +217,18 @@ class AdminDataWarehouseHandler(AdminBaseHandler):
         self.render("admin_data_warehouse.html", title="数据仓库", username=self.current_user)
 
 
+class AdminDataWarehouseDetailPageHandler(AdminBaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        record_id = int(self.get_argument("record_id", 0) or 0)
+        self.render(
+            "admin_data_warehouse_detail.html",
+            title="深采详情",
+            username=self.current_user,
+            record_id=record_id
+        )
+
+
 class AdminDataWarehouseListHandler(AdminBaseHandler):
     @tornado.web.authenticated
     def get(self):
@@ -227,6 +243,18 @@ class AdminDataWarehouseListHandler(AdminBaseHandler):
             source_id=source_id or None
         )
         self.write({"code": 0, "msg": "成功", "data": data})
+
+
+class AdminDataWarehouseDetailHandler(AdminBaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        record_id = int(self.get_argument("record_id", 0) or 0)
+        if not record_id:
+            return self.write({"code": 1, "msg": "记录ID无效"})
+        detail = LookoutRecordDetailRepository.get_detail_by_record_id(record_id)
+        if not detail:
+            return self.write({"code": 1, "msg": "该记录尚无深度采集明细"})
+        self.write({"code": 0, "msg": "成功", "data": detail})
 
 
 class AdminDataWarehouseDeleteHandler(AdminBaseHandler):
@@ -250,6 +278,50 @@ class AdminDataWarehouseBatchDeleteHandler(AdminBaseHandler):
             return self.write({"code": 1, "msg": "请至少选择一条记录"})
         deleted_count = LookoutRecordRepository.batch_delete(record_ids)
         self.write({"code": 0, "msg": f"已删除 {deleted_count} 条记录"})
+
+
+class AdminDataWarehouseDeepCollectHandler(AdminBaseHandler):
+    @tornado.web.authenticated
+    def post(self):
+        ids_raw = self.get_body_argument("ids", "") or ""
+        record_ids = [int(item) for item in ids_raw.split(",") if item.strip().isdigit()]
+        if not record_ids:
+            single_id = int(self.get_body_argument("id", 0) or 0)
+            if single_id:
+                record_ids = [single_id]
+        if not record_ids:
+            return self.write({"code": 1, "msg": "请至少选择一条记录"})
+
+        task_id = LookoutDeepTaskRepository.create_task(total_count=len(record_ids))
+        LookoutDeepTaskRepository.add_log(task_id, f"任务已创建，待处理 {len(record_ids)} 条记录")
+        tornado.ioloop.IOLoop.current().spawn_callback(LookoutDeepCollector.run_task, task_id, record_ids)
+        self.write({
+            "code": 0,
+            "msg": "AI 深度采集任务已启动",
+            "data": {"task_id": task_id, "total_count": len(record_ids)}
+        })
+
+
+class AdminDataWarehouseDeepTaskHandler(AdminBaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        task_id = int(self.get_argument("task_id", 0) or 0)
+        if not task_id:
+            return self.write({"code": 1, "msg": "任务ID无效"})
+        task = LookoutDeepTaskRepository.get_task(task_id)
+        if not task:
+            return self.write({"code": 1, "msg": "任务不存在"})
+        self.write({"code": 0, "msg": "成功", "data": task})
+
+
+class AdminDataWarehouseDeepLogsHandler(AdminBaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        task_id = int(self.get_argument("task_id", 0) or 0)
+        if not task_id:
+            return self.write({"code": 1, "msg": "任务ID无效"})
+        logs = LookoutDeepTaskRepository.get_logs(task_id)
+        self.write({"code": 0, "msg": "成功", "data": logs})
 
 
 def _read_source_form(handler):

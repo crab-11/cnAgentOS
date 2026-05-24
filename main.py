@@ -65,9 +65,14 @@ from app.controllers.admin_lookout import (
     AdminLookoutCollectHandler,
     AdminLookoutTaskListHandler,
     AdminDataWarehouseHandler,
+    AdminDataWarehouseDetailPageHandler,
     AdminDataWarehouseListHandler,
+    AdminDataWarehouseDetailHandler,
     AdminDataWarehouseDeleteHandler,
-    AdminDataWarehouseBatchDeleteHandler
+    AdminDataWarehouseBatchDeleteHandler,
+    AdminDataWarehouseDeepCollectHandler,
+    AdminDataWarehouseDeepTaskHandler,
+    AdminDataWarehouseDeepLogsHandler
 )
 
 # 引入数据库初始化方法
@@ -156,9 +161,14 @@ def make_app():
         (r"/admin/api/lookout/source/collect", AdminLookoutCollectHandler),
         (r"/admin/api/lookout/task/list", AdminLookoutTaskListHandler),
         (r"/admin/data/warehouse", AdminDataWarehouseHandler),
+        (r"/admin/data/warehouse/detail", AdminDataWarehouseDetailPageHandler),
         (r"/admin/api/data/warehouse/list", AdminDataWarehouseListHandler),
+        (r"/admin/api/data/warehouse/detail", AdminDataWarehouseDetailHandler),
         (r"/admin/api/data/warehouse/delete", AdminDataWarehouseDeleteHandler),
         (r"/admin/api/data/warehouse/batch-delete", AdminDataWarehouseBatchDeleteHandler),
+        (r"/admin/api/data/warehouse/deep-collect", AdminDataWarehouseDeepCollectHandler),
+        (r"/admin/api/data/warehouse/deep-task", AdminDataWarehouseDeepTaskHandler),
+        (r"/admin/api/data/warehouse/deep-logs", AdminDataWarehouseDeepLogsHandler),
     ], **settings)
 
 

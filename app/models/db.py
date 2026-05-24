@@ -222,6 +222,8 @@ def init_db():
                 content_url TEXT,
                 source_page_url TEXT,
                 published_at TEXT,
+                deep_status TEXT NOT NULL DEFAULT 'pending',
+                deep_collected_at TEXT,
                 raw_payload TEXT,
                 content_hash TEXT NOT NULL,
                 create_at TEXT NOT NULL DEFAULT(datetime('now')),
@@ -238,6 +240,10 @@ def init_db():
             conn.execute("ALTER TABLE lookout_records ADD COLUMN keyword TEXT")
         if 'source_page_url' not in lookout_record_columns:
             conn.execute("ALTER TABLE lookout_records ADD COLUMN source_page_url TEXT")
+        if 'deep_status' not in lookout_record_columns:
+            conn.execute("ALTER TABLE lookout_records ADD COLUMN deep_status TEXT NOT NULL DEFAULT 'pending'")
+        if 'deep_collected_at' not in lookout_record_columns:
+            conn.execute("ALTER TABLE lookout_records ADD COLUMN deep_collected_at TEXT")
 
         conn.execute(
             """
@@ -268,6 +274,63 @@ def init_db():
             conn.execute("ALTER TABLE lookout_tasks ADD COLUMN page_count INTEGER NOT NULL DEFAULT 1")
         if 'page_size' not in lookout_task_columns:
             conn.execute("ALTER TABLE lookout_tasks ADD COLUMN page_size INTEGER NOT NULL DEFAULT 20")
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lookout_record_details(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                record_id INTEGER NOT NULL UNIQUE,
+                source_url TEXT,
+                crawl_title TEXT,
+                markdown_content TEXT,
+                html_content TEXT,
+                extracted_text TEXT,
+                ai_summary TEXT,
+                ai_keywords TEXT,
+                ai_entities TEXT,
+                ai_stats TEXT,
+                model_service_id INTEGER,
+                content_length INTEGER NOT NULL DEFAULT 0,
+                create_at TEXT NOT NULL DEFAULT(datetime('now')),
+                update_at TEXT NOT NULL DEFAULT(datetime('now')),
+                FOREIGN KEY(record_id) REFERENCES lookout_records(id) ON DELETE CASCADE,
+                FOREIGN KEY(model_service_id) REFERENCES model_services(id) ON DELETE SET NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lookout_deep_tasks(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                total_count INTEGER NOT NULL DEFAULT 0,
+                success_count INTEGER NOT NULL DEFAULT 0,
+                failed_count INTEGER NOT NULL DEFAULT 0,
+                model_service_id INTEGER,
+                summary_json TEXT,
+                error_message TEXT,
+                create_at TEXT NOT NULL DEFAULT(datetime('now')),
+                finish_at TEXT,
+                FOREIGN KEY(model_service_id) REFERENCES model_services(id) ON DELETE SET NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lookout_deep_logs(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL,
+                record_id INTEGER,
+                level TEXT NOT NULL DEFAULT 'info',
+                message TEXT NOT NULL,
+                create_at TEXT NOT NULL DEFAULT(datetime('now')),
+                FOREIGN KEY(task_id) REFERENCES lookout_deep_tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY(record_id) REFERENCES lookout_records(id) ON DELETE SET NULL
+            )
+            """
+        )
 
         cursor = conn.execute("SELECT COUNT(*) FROM roles")
         if cursor.fetchone()[0] == 0:
