@@ -437,22 +437,6 @@ def init_db():
 
             conn.execute("INSERT INTO role_permissions(role_id, permission_id) SELECT 1, id FROM permissions")
 
-        conn.execute("UPDATE permissions SET name = '功能管理', display_name = '功能管理', icon = 'fas fa-sitemap' WHERE code = 'permission'")
-        conn.execute(
-            """
-            UPDATE permissions
-            SET name = '智能瞭望',
-                display_name = '智能瞭望',
-                icon = 'fas fa-binoculars',
-                sort_order = 200
-            WHERE code = 'lookout'
-            """
-        )
-
-        system_row = conn.execute("SELECT id FROM permissions WHERE code = 'system'").fetchone()
-        if system_row:
-            conn.execute("UPDATE permissions SET parent_id = ?, category = 'menu' WHERE code IN ('user', 'role', 'permission')", (system_row[0],))
-
         legacy_robot_row = conn.execute("SELECT id FROM permissions WHERE code = 'robot'").fetchone()
         if legacy_robot_row:
             conn.execute(
@@ -494,50 +478,6 @@ def init_db():
                        VALUES(?, ?, ?, ?, ?, ?, ?, ?)""",
                     (name, display_name, code, category, parent[0], icon, url, sort_order)
                 )
-                conn.execute(
-                    """
-                    UPDATE permissions
-                    SET name = ?,
-                        display_name = ?,
-                        category = ?,
-                        parent_id = ?,
-                        icon = ?,
-                        url = ?,
-                        sort_order = ?
-                    WHERE code = ?
-                    """,
-                    (name, display_name, category, parent[0], icon, url, sort_order, code)
-                )
-
-        conn.execute(
-            """
-            UPDATE permissions
-            SET name = '模型引擎',
-                display_name = '模型引擎',
-                icon = 'fas fa-brain',
-                url = '',
-                sort_order = 300,
-                category = 'group',
-                parent_id = 0
-            WHERE code = 'model'
-            """
-        )
-        model_row = conn.execute("SELECT id FROM permissions WHERE code = 'model'").fetchone()
-        if model_row:
-            conn.execute(
-                """
-                UPDATE permissions
-                SET name = '模型服务',
-                    display_name = '模型服务',
-                    icon = 'fas fa-cubes',
-                    url = '/admin/model',
-                    sort_order = 301,
-                    parent_id = ?,
-                    category = 'menu'
-                WHERE code = 'model_config'
-                """,
-                (model_row[0],)
-            )
 
         conn.execute(
             """
