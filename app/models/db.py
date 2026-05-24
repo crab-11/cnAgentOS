@@ -167,6 +167,53 @@ def init_db():
 
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS api_interfaces(
+                id integer PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                category TEXT NOT NULL DEFAULT 'external',
+                endpoint_url TEXT NOT NULL,
+                response_format TEXT NOT NULL DEFAULT 'JSON',
+                request_method TEXT NOT NULL DEFAULT 'GET',
+                request_example TEXT,
+                default_qps_text TEXT,
+                rate_limit_window_seconds INTEGER NOT NULL DEFAULT 2,
+                rate_limit_max_requests INTEGER NOT NULL DEFAULT 4,
+                token_bypass_limit INTEGER NOT NULL DEFAULT 0,
+                default_query_params TEXT,
+                remark TEXT,
+                status INTEGER NOT NULL DEFAULT 1,
+                create_at TEXT NOT NULL DEFAULT(datetime('now')),
+                update_at TEXT NOT NULL DEFAULT(datetime('now'))
+            )
+            """
+        )
+
+        cursor = conn.execute("PRAGMA table_info(api_interfaces)")
+        api_interface_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'category' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN category TEXT NOT NULL DEFAULT 'external'")
+        if 'request_example' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN request_example TEXT")
+        if 'default_qps_text' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN default_qps_text TEXT")
+        if 'rate_limit_window_seconds' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN rate_limit_window_seconds INTEGER NOT NULL DEFAULT 2")
+        if 'rate_limit_max_requests' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN rate_limit_max_requests INTEGER NOT NULL DEFAULT 4")
+        if 'token_bypass_limit' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN token_bypass_limit INTEGER NOT NULL DEFAULT 0")
+        if 'default_query_params' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN default_query_params TEXT")
+        if 'remark' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN remark TEXT")
+        if 'status' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN status INTEGER NOT NULL DEFAULT 1")
+        if 'update_at' not in api_interface_columns:
+            conn.execute("ALTER TABLE api_interfaces ADD COLUMN update_at TEXT NOT NULL DEFAULT(datetime('now'))")
+
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS lookout_sources(
                 id integer PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
@@ -567,6 +614,7 @@ def init_db():
                     existing_baidu[0]
                 )
             )
+
         else:
             conn.execute(
                 """
@@ -593,3 +641,72 @@ def init_db():
                     "预置百度新闻采集模板，可在后台继续调整请求头、参数与提取规则。"
                 )
             )
+
+        builtin_api_interfaces = [
+            (
+                "网易云随机音乐",
+                "music",
+                "https://api.52vmy.cn/api/music/wy/rand",
+                "JSON",
+                "GET",
+                "https://api.52vmy.cn/api/music/wy/rand",
+                "每2秒最多4次，携带Token可无视限制",
+                2,
+                4,
+                1,
+                None,
+                "随机返回网易云音乐数据。"
+            ),
+            (
+                "三日天气查询",
+                "query",
+                "https://api.52vmy.cn/api/query/tian",
+                "JSON",
+                "GET",
+                "https://api.52vmy.cn/api/query/tian?city=北京市",
+                "每2秒最多4次，携带Token可无视限制",
+                2,
+                4,
+                1,
+                '{"city":"北京市"}',
+                "点击前往三日天气API"
+            ),
+        ]
+        for item in builtin_api_interfaces:
+            existing_api = conn.execute(
+                "SELECT id FROM api_interfaces WHERE name = ?",
+                (item[0],)
+            ).fetchone()
+            if existing_api:
+                conn.execute(
+                    """
+                    UPDATE api_interfaces
+                    SET category = ?,
+                        endpoint_url = ?,
+                        response_format = ?,
+                        request_method = ?,
+                        request_example = ?,
+                        default_qps_text = ?,
+                        rate_limit_window_seconds = ?,
+                        rate_limit_max_requests = ?,
+                        token_bypass_limit = ?,
+                        default_query_params = ?,
+                        remark = ?,
+                        status = 1,
+                        update_at = datetime('now')
+                    WHERE id = ?
+                    """,
+                    item[1:] + (existing_api[0],)
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO api_interfaces(
+                        name, category, endpoint_url, response_format, request_method,
+                        request_example, default_qps_text, rate_limit_window_seconds,
+                        rate_limit_max_requests, token_bypass_limit, default_query_params,
+                        remark, status
+                    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    """,
+                    item
+                )
