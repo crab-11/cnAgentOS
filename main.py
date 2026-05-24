@@ -24,6 +24,24 @@ from app.controllers.admin_user import (
     AdminUserBatchDeleteHandler,
     AdminStatsHandler
 )
+from app.controllers.admin_permission import (
+    AdminPermissionHandler,
+    AdminPermissionListHandler,
+    AdminPermissionTreeHandler,
+    AdminPermissionAddHandler,
+    AdminPermissionUpdateHandler,
+    AdminPermissionDeleteHandler,
+    AdminPermissionMenusHandler
+)
+from app.controllers.admin_role import (
+    AdminRoleHandler,
+    AdminRoleListHandler,
+    AdminRoleAddHandler,
+    AdminRoleUpdateHandler,
+    AdminRoleDeleteHandler,
+    AdminRolePermissionsHandler,
+    AdminRoleAllPermissionsHandler
+)
 
 # 引入数据库初始化方法
 from app.models.db import init_db
@@ -68,6 +86,24 @@ def make_app():
         (r"/admin/api/user/delete", AdminUserDeleteHandler),
         (r"/admin/api/user/batch-delete", AdminUserBatchDeleteHandler),
         (r"/admin/api/stats", AdminStatsHandler),
+
+        # 权限管理路由
+        (r"/admin/permission", AdminPermissionHandler),
+        (r"/admin/api/permission/list", AdminPermissionListHandler),
+        (r"/admin/api/permission/tree", AdminPermissionTreeHandler),
+        (r"/admin/api/permission/add", AdminPermissionAddHandler),
+        (r"/admin/api/permission/update", AdminPermissionUpdateHandler),
+        (r"/admin/api/permission/delete", AdminPermissionDeleteHandler),
+        (r"/admin/api/permission/menus", AdminPermissionMenusHandler),
+
+        # 角色管理路由
+        (r"/admin/role", AdminRoleHandler),
+        (r"/admin/api/role/list", AdminRoleListHandler),
+        (r"/admin/api/role/add", AdminRoleAddHandler),
+        (r"/admin/api/role/update", AdminRoleUpdateHandler),
+        (r"/admin/api/role/delete", AdminRoleDeleteHandler),
+        (r"/admin/api/role/permissions", AdminRolePermissionsHandler),
+        (r"/admin/api/role/all-permissions", AdminRoleAllPermissionsHandler),
     ], **settings)
 
 

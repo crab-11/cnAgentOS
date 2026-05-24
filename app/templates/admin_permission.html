@@ -1,0 +1,295 @@
+{% extends "admin_base.html" %}
+
+{% block body %}
+<div class="toolbar">
+    <div class="layui-form-item">
+        <div class="layui-inline">
+            <input type="text" id="search-name" placeholder="搜索名称/代码" class="layui-input" style="width: 200px;">
+        </div>
+        <div class="layui-inline">
+            <select id="search-category" class="layui-input" style="width: 120px; height: 38px;">
+                <option value="">全部分类</option>
+                <option value="group">分组</option>
+                <option value="menu">菜单</option>
+            </select>
+        </div>
+        <div class="layui-inline">
+            <button class="layui-btn" id="btn-search">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+            <button class="layui-btn layui-btn-normal" id="btn-add">
+                <i class="fas fa-plus"></i> 新增功能
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="table-container">
+    <table id="permission-table" lay-filter="permission-table"></table>
+</div>
+
+<script type="text/html" id="toolbar-permission">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">
+        <i class="fas fa-edit"></i> 编辑
+    </a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete">
+        <i class="fas fa-trash"></i> 删除
+    </a>
+</script>
+
+<div id="permission-form-dialog" style="display: none; padding: 0;">
+    <form class="layui-form" id="permission-form" lay-filter="permission-form" style="padding: 20px;">
+        {% module xsrf_form_html() %}
+        <input type="hidden" name="id" id="form-id">
+        <div class="layui-form-item">
+            <label class="layui-form-label"><i class="required">*</i>功能类型</label>
+            <div class="layui-input-block">
+                <select name="category" id="form-category" lay-filter="form-category">
+                    <option value="group">分组</option>
+                    <option value="menu">菜单</option>
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item" id="parent-item">
+            <label class="layui-form-label">所属分组</label>
+            <div class="layui-input-block">
+                <select name="parent_id" id="form-parent">
+                    <option value="0">无（顶级）</option>
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label"><i class="required">*</i>功能名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" id="form-name" placeholder="请输入功能名称" class="layui-input" lay-verify="required" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label"><i class="required">*</i>显示名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="display_name" id="form-display-name" placeholder="请输入显示名称" class="layui-input" lay-verify="required" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label"><i class="required">*</i>功能代码</label>
+            <div class="layui-input-block">
+                <input type="text" name="code" id="form-code" placeholder="请输入功能代码（英文唯一）" class="layui-input" lay-verify="required" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item" id="icon-item">
+            <label class="layui-form-label">图标</label>
+            <div class="layui-input-block">
+                <input type="text" name="icon" id="form-icon" placeholder="如：fas fa-users" class="layui-input" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item" id="url-item" style="display:none;">
+            <label class="layui-form-label">URL地址</label>
+            <div class="layui-input-block">
+                <input type="text" name="url" id="form-url" placeholder="如：/admin/user" class="layui-input" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">排序</label>
+            <div class="layui-input-block">
+                <input type="number" name="sort_order" id="form-sort-order" value="0" class="layui-input" style="width: 120px;">
+            </div>
+        </div>
+        <div class="layui-form-item" style="margin-bottom: 0; border-top: 1px solid #e6e6e6; padding-top: 15px; margin-top: 5px;">
+            <div class="layui-input-block" style="margin-left: 0;">
+                <button class="layui-btn layui-btn-normal" lay-submit lay-filter="form-save" style="width: 120px;">保存</button>
+                <button type="button" class="layui-btn layui-btn-primary" id="btn-cancel" style="width: 80px;">取消</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% end %}
+
+{% block scripts %}
+<script>
+    layui.use(['table', 'form', 'layer', 'jquery'], function(){
+        var table = layui.table;
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.jquery;
+
+        var $userMenu = $('.sidebar-menu li:has(a:contains("权限管理"))');
+        if(!$userMenu.hasClass('active')){
+            $('.sidebar-menu li').removeClass('active');
+            $userMenu.addClass('active');
+        }
+        $userMenu.find('.submenu').show();
+
+        table.render({
+            elem: '#permission-table',
+            url: '/admin/api/permission/list',
+            method: 'get',
+            page: {
+                limit: 50,
+                limits: [20, 50, 100]
+            },
+            cols: [[
+                {field: 'id', title: 'ID', width: 60, sort: true},
+                {field: 'name', title: '功能名称', width: 150},
+                {field: 'display_name', title: '显示名称', width: 150},
+                {field: 'code', title: '代码', width: 150},
+                {field: 'category_name', title: '类型', width: 80},
+                {field: 'icon', title: '图标', width: 150, templet: function(d){
+                    return d.icon ? '<i class="' + d.icon + '"></i> ' + d.icon : '-';
+                }},
+                {field: 'url', title: 'URL', width: 180},
+                {field: 'sort_order', title: '排序', width: 70},
+                {field: 'status_name', title: '状态', width: 80},
+                {title: '操作', width: 120, toolbar: '#toolbar-permission', fixed: 'right'}
+            ]],
+            parseData: function(res){
+                return {
+                    "code": res.code,
+                    "msg": res.msg,
+                    "count": res.data.total,
+                    "data": res.data.list
+                };
+            }
+        });
+
+        $('#btn-search').on('click', function(){
+            var name = $('#search-name').val();
+            var category = $('#search-category').val();
+            table.reload('permission-table', {
+                where: {name: name, category: category},
+                page: {curr: 1}
+            });
+        });
+
+        $('#btn-add').on('click', function(){
+            $('#permission-form')[0].reset();
+            $('#form-id').val('');
+            loadParentPermissions(0);
+            form.render('select');
+            updateFormFields();
+            layer.open({
+                type: 1,
+                title: '<i class="fas fa-plus-circle" style="margin-right:8px;"></i>新增功能',
+                area: ['520px', '480px'],
+                skin: 'layui-layer-admin',
+                content: $('#permission-form-dialog')
+            });
+        });
+
+        form.on('select(form-category)', function(data){
+            updateFormFields();
+            if(data.value === 'menu'){
+                loadParentPermissions(0);
+                $('#parent-item').show();
+            } else {
+                $('#form-parent').html('<option value="0">无（顶级）</option>');
+                form.render('select');
+                $('#parent-item').hide();
+            }
+        });
+
+        function updateFormFields(){
+            var category = $('#form-category').val();
+            if(category === 'group'){
+                $('#icon-item').show();
+                $('#url-item').hide();
+                $('#parent-item').hide();
+            } else {
+                $('#icon-item').show();
+                $('#url-item').show();
+                $('#parent-item').show();
+            }
+        }
+
+        function loadParentPermissions(selectedId){
+            $.get('/admin/api/permission/tree', function(res){
+                if(res.code === 0){
+                    var options = '<option value="0">无（顶级）</option>';
+                    $.each(res.data, function(i, group){
+                        options += '<option value="' + group.id + '">' + group.name + '</option>';
+                    });
+                    $('#form-parent').html(options);
+                    if(selectedId){
+                        $('#form-parent').val(selectedId);
+                    }
+                    form.render('select');
+                }
+            });
+        }
+
+        table.on('tool(permission-table)', function(obj){
+            var data = obj.data;
+            if(obj.event === 'edit'){
+                $('#form-id').val(data.id);
+                $('#form-category').val(data.category);
+                form.render('select');
+                updateFormFields();
+                loadParentPermissions(data.parent_id);
+                $('#form-name').val(data.name);
+                $('#form-display-name').val(data.display_name);
+                $('#form-code').val(data.code);
+                $('#form-icon').val(data.icon || '');
+                $('#form-url').val(data.url || '');
+                $('#form-sort-order').val(data.sort_order || 0);
+                form.render();
+                layer.open({
+                    type: 1,
+                    title: '<i class="fas fa-edit" style="margin-right:8px;"></i>编辑功能',
+                    area: ['520px', '480px'],
+                    skin: 'layui-layer-admin',
+                    content: $('#permission-form-dialog')
+                });
+            } else if(obj.event === 'delete'){
+                layer.confirm('确定要删除功能 <strong>' + data.name + '</strong> 吗？<br><span style="color:#999;font-size:12px;">删除后无法恢复，请谨慎操作。</span>', {
+                    icon: 3,
+                    title: '<i class="fas fa-exclamation-triangle" style="margin-right:8px;color:#ff0000;"></i>删除确认',
+                    btn: ['确定删除', '取消'],
+                    btn1: function(index){
+                        var xsrf = $('input[name="_xsrf"]').val();
+                        $.post('/admin/api/permission/delete', {id: data.id, _xsrf: xsrf}, function(res){
+                            if(res.code === 0){
+                                layer.msg(res.msg, {icon: 1});
+                                table.reload('permission-table');
+                            } else {
+                                layer.msg(res.msg, {icon: 2});
+                            }
+                        });
+                        layer.close(index);
+                    }
+                });
+            }
+        });
+
+        form.on('submit(form-save)', function(data){
+            var formData = data.field;
+            var url = formData.id ? '/admin/api/permission/update' : '/admin/api/permission/add';
+
+            $.post(url, formData, function(res){
+                if(res.code === 0){
+                    layer.msg(res.msg, {icon: 1});
+                    layer.closeAll();
+                    table.reload('permission-table');
+                } else {
+                    layer.msg(res.msg, {icon: 2});
+                }
+            });
+            return false;
+        });
+
+        $('#btn-cancel').on('click', function(){
+            layer.closeAll();
+        });
+
+        $(document).on('keyup', '#search-name', function(e){
+            if(e.keyCode === 13){
+                $('#btn-search').click();
+            }
+        });
+    });
+</script>
+<style>
+.required {
+    color: #ff0000;
+    margin-right: 2px;
+}
+</style>
+{% end %}

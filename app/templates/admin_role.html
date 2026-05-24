@@ -1,0 +1,348 @@
+{% extends "admin_base.html" %}
+
+{% block body %}
+<div class="toolbar">
+    <div class="layui-form-item">
+        <div class="layui-inline">
+            <input type="text" id="search-name" placeholder="搜索角色名称" class="layui-input" style="width: 200px;">
+        </div>
+        <div class="layui-inline">
+            <button class="layui-btn" id="btn-search">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+            <button class="layui-btn layui-btn-normal" id="btn-add">
+                <i class="fas fa-plus"></i> 新增角色
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="table-container">
+    <table id="role-table" lay-filter="role-table"></table>
+</div>
+
+<script type="text/html" id="toolbar-role">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">
+        <i class="fas fa-edit"></i> 编辑
+    </a>
+    <a class="layui-btn layui-btn-xs" lay-event="permission">
+        <i class="fas fa-key"></i> 权限
+    </a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete">
+        <i class="fas fa-trash"></i> 删除
+    </a>
+</script>
+
+<div id="role-form-dialog" style="display: none; padding: 0;">
+    <form class="layui-form" id="role-form" lay-filter="role-form" style="padding: 20px;">
+        {% module xsrf_form_html() %}
+        <input type="hidden" name="id" id="form-id">
+        <div class="layui-form-item">
+            <label class="layui-form-label"><i class="required">*</i>角色代码</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" id="form-name" placeholder="请输入角色代码（英文唯一）" class="layui-input" lay-verify="required|username" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label"><i class="required">*</i>显示名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="display_name" id="form-display-name" placeholder="请输入显示名称" class="layui-input" lay-verify="required" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">角色描述</label>
+            <div class="layui-input-block">
+                <textarea name="description" id="form-description" placeholder="请输入角色描述（选填）" class="layui-textarea" rows="2"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item" id="status-item" style="display:none;">
+            <label class="layui-form-label">状态</label>
+            <div class="layui-input-block">
+                <input type="switch" name="status" lay-skin="switch" lay-text="正常|禁用" value="1" checked>
+            </div>
+        </div>
+        <div class="layui-form-item" style="margin-bottom: 0; border-top: 1px solid #e6e6e6; padding-top: 15px; margin-top: 5px;">
+            <div class="layui-input-block" style="margin-left: 0;">
+                <button class="layui-btn layui-btn-normal" lay-submit lay-filter="form-save" style="width: 120px;">保存</button>
+                <button type="button" class="layui-btn layui-btn-primary" id="btn-cancel" style="width: 80px;">取消</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div id="permission-dialog" style="display: none; padding: 0;">
+    <form class="layui-form" id="permission-form" style="padding: 20px;">
+        {% module xsrf_form_html() %}
+        <input type="hidden" name="role_id" id="perm-role-id">
+        <div class="layui-form-item" style="margin-bottom: 15px;">
+            <label class="layui-form-label">角色名称</label>
+            <div class="layui-input-block">
+                <input type="text" id="perm-role-name" class="layui-input" readonly style="background-color: #f5f5f5;">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">权限分配</label>
+            <div class="layui-input-block" id="permission-tree" style="max-height: 320px; overflow-y: auto; border: 1px solid #e6e6e6; padding: 10px; border-radius: 4px;"></div>
+        </div>
+        <div class="layui-form-item" style="margin-bottom: 0; border-top: 1px solid #e6e6e6; padding-top: 15px; margin-top: 5px;">
+            <div class="layui-input-block" style="margin-left: 0;">
+                <button class="layui-btn layui-btn-normal" lay-submit lay-filter="form-perm-save" style="width: 120px;">保存权限</button>
+                <button type="button" class="layui-btn layui-btn-primary" id="btn-perm-cancel" style="width: 80px;">取消</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% end %}
+
+{% block scripts %}
+<script>
+    layui.use(['table', 'form', 'layer', 'jquery'], function(){
+        var table = layui.table;
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.jquery;
+
+        var $userMenu = $('.sidebar-menu li:has(a:contains("权限管理"))');
+        if(!$userMenu.hasClass('active')){
+            $('.sidebar-menu li').removeClass('active');
+            $userMenu.addClass('active');
+        }
+        $userMenu.find('.submenu').show();
+
+        table.render({
+            elem: '#role-table',
+            url: '/admin/api/role/list',
+            method: 'get',
+            page: {
+                limit: 20,
+                limits: [10, 20, 50]
+            },
+            cols: [[
+                {field: 'id', title: 'ID', width: 60, sort: true},
+                {field: 'name', title: '角色代码', width: 120},
+                {field: 'display_name', title: '显示名称', width: 150},
+                {field: 'description', title: '描述', width: 200},
+                {field: 'is_system_name', title: '系统角色', width: 90},
+                {field: 'permission_count', title: '权限数', width: 80},
+                {field: 'status_name', title: '状态', width: 80},
+                {field: 'create_at', title: '创建时间', width: 180},
+                {title: '操作', width: 200, toolbar: '#toolbar-role', fixed: 'right'}
+            ]],
+            parseData: function(res){
+                return {
+                    "code": res.code,
+                    "msg": res.msg,
+                    "count": res.data.total,
+                    "data": res.data.list
+                };
+            }
+        });
+
+        $('#btn-search').on('click', function(){
+            var name = $('#search-name').val();
+            table.reload('role-table', {
+                where: {name: name},
+                page: {curr: 1}
+            });
+        });
+
+        $('#btn-add').on('click', function(){
+            $('#role-form')[0].reset();
+            $('#form-id').val('');
+            $('#form-name').attr('readonly', false);
+            $('#status-item').hide();
+            form.render();
+            layer.open({
+                type: 1,
+                title: '<i class="fas fa-plus-circle" style="margin-right:8px;"></i>新增角色',
+                area: ['520px', '380px'],
+                skin: 'layui-layer-admin',
+                content: $('#role-form-dialog')
+            });
+        });
+
+        table.on('tool(role-table)', function(obj){
+            var data = obj.data;
+            if(obj.event === 'edit'){
+                if(!data.can_edit || data.can_edit === false){
+                    layer.msg('系统内置角色不能编辑', {icon: 2});
+                    return;
+                }
+                $('#form-id').val(data.id);
+                $('#form-name').val(data.name).attr('readonly', true);
+                $('#form-display-name').val(data.display_name);
+                $('#form-description').val(data.description || '');
+                $('#status-item').show();
+                $('input[name="status"][value="' + data.status + '"]').prop('checked', true);
+                form.render();
+                layer.open({
+                    type: 1,
+                    title: '<i class="fas fa-edit" style="margin-right:8px;"></i>编辑角色',
+                    area: ['520px', '380px'],
+                    skin: 'layui-layer-admin',
+                    content: $('#role-form-dialog')
+                });
+            } else if(obj.event === 'permission'){
+                loadRolePermissions(data);
+            } else if(obj.event === 'delete'){
+                if(!data.can_delete || data.can_delete === false){
+                    layer.msg('系统内置角色不能删除', {icon: 2});
+                    return;
+                }
+                layer.confirm('确定要删除角色 <strong>' + data.display_name + '</strong> 吗？<br><span style="color:#999;font-size:12px;">删除后无法恢复，请谨慎操作。</span>', {
+                    icon: 3,
+                    title: '<i class="fas fa-exclamation-triangle" style="margin-right:8px;color:#ff0000;"></i>删除确认',
+                    btn: ['确定删除', '取消'],
+                    btn1: function(index){
+                        var xsrf = $('input[name="_xsrf"]').val();
+                        $.post('/admin/api/role/delete', {id: data.id, _xsrf: xsrf}, function(res){
+                            if(res.code === 0){
+                                layer.msg(res.msg, {icon: 1});
+                                table.reload('role-table');
+                            } else {
+                                layer.msg(res.msg, {icon: 2});
+                            }
+                        });
+                        layer.close(index);
+                    }
+                });
+            }
+        });
+
+        function loadRolePermissions(roleData){
+            $('#perm-role-id').val(roleData.id);
+            $('#perm-role-name').val(roleData.display_name);
+            $('#permission-tree').html('<div style="padding:20px;color:#999;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:10px;"></i><br>加载中...</div>');
+
+            $.get('/admin/api/role/all-permissions', function(res){
+                if(res.code === 0){
+                    var html = '';
+                    $.each(res.data, function(i, group){
+                        html += '<div class="perm-group" style="margin-bottom:15px;">';
+                        html += '<div class="perm-group-title" style="font-weight:600;margin-bottom:8px;padding:8px 10px;background:#f5f7fa;border-radius:4px;">';
+                        html += '<label style="cursor:pointer;"><input type="checkbox" class="perm-group-check" data-group="' + group.id + '" lay-skin="primary"> ' + group.name + '</label>';
+                        html += '</div>';
+                        html += '<div class="perm-group-menus" style="padding-left:10px;">';
+                        if(group.children && group.children.length > 0){
+                            $.each(group.children, function(j, menu){
+                                html += '<div style="margin-bottom:6px;padding:5px 8px;border-radius:3px;" class="perm-item">';
+                                html += '<label style="cursor:pointer;"><input type="checkbox" class="perm-menu-check" data-group="' + group.id + '" data-perm="' + menu.id + '" value="' + menu.id + '" lay-skin="primary" title="' + (menu.url || '') + '"> ' + menu.display_name + '</label>';
+                                html += '</div>';
+                            });
+                        } else {
+                            html += '<div style="color:#999;font-size:12px;padding:5px 0;">无子菜单</div>';
+                        }
+                        html += '</div></div>';
+                    });
+                    if(html === ''){
+                        html = '<div style="padding:30px;text-align:center;color:#999;">暂无权限配置</div>';
+                    }
+                    $('#permission-tree').html(html);
+                    form.render('checkbox');
+
+                    $.get('/admin/api/role/permissions?role_id=' + roleData.id, function(resp){
+                        if(resp.code === 0 && resp.data.permission_ids){
+                            $('.perm-menu-check').each(function(){
+                                var permId = parseInt($(this).val());
+                                if(resp.data.permission_ids.indexOf(permId) >= 0){
+                                    $(this).prop('checked', true);
+                                }
+                            });
+                            updateGroupCheckboxes();
+                            form.render('checkbox');
+                        }
+                    });
+
+                    $('.perm-group-check').on('change', function(){
+                        var groupId = $(this).data('group');
+                        var checked = $(this).prop('checked');
+                        $('.perm-menu-check[data-group="' + groupId + '"]').prop('checked', checked);
+                        form.render('checkbox');
+                    });
+
+                    $('.perm-menu-check').on('change', function(){
+                        updateGroupCheckboxes();
+                    });
+
+                    function updateGroupCheckboxes(){
+                        $('.perm-group').each(function(){
+                            var groupId = $(this).find('.perm-group-check').data('group');
+                            var menuChecks = $(this).find('.perm-menu-check');
+                            var checkedCount = menuChecks.filter(':checked').length;
+                            var totalCount = menuChecks.length;
+                            if(totalCount > 0){
+                                $(this).find('.perm-group-check').prop('checked', checkedCount === totalCount);
+                            }
+                        });
+                    }
+
+                    layer.open({
+                        type: 1,
+                        title: '<i class="fas fa-key" style="margin-right:8px;"></i>分配权限 - ' + roleData.display_name,
+                        area: ['550px', '550px'],
+                        skin: 'layui-layer-admin',
+                        content: $('#permission-dialog')
+                    });
+                } else {
+                    $('#permission-tree').html('<div style="padding:20px;text-align:center;color:#ff0000;">加载失败</div>');
+                }
+            });
+        }
+
+        form.on('submit(form-perm-save)', function(data){
+            var formData = data.field;
+            var permissionIds = [];
+            $('.perm-menu-check:checked').each(function(){
+                permissionIds.push($(this).val());
+            });
+            formData.permission_ids = permissionIds.join(',');
+
+            $.post('/admin/api/role/permissions', formData, function(res){
+                if(res.code === 0){
+                    layer.msg(res.msg, {icon: 1});
+                    layer.closeAll();
+                    table.reload('role-table');
+                } else {
+                    layer.msg(res.msg, {icon: 2});
+                }
+            });
+            return false;
+        });
+
+        form.on('submit(form-save)', function(data){
+            var formData = data.field;
+            var url = formData.id ? '/admin/api/role/update' : '/admin/api/role/add';
+
+            $.post(url, formData, function(res){
+                if(res.code === 0){
+                    layer.msg(res.msg, {icon: 1});
+                    layer.closeAll();
+                    table.reload('role-table');
+                } else {
+                    layer.msg(res.msg, {icon: 2});
+                }
+            });
+            return false;
+        });
+
+        $('#btn-cancel, #btn-perm-cancel').on('click', function(){
+            layer.closeAll();
+        });
+
+        $(document).on('keyup', '#search-name', function(e){
+            if(e.keyCode === 13){
+                $('#btn-search').click();
+            }
+        });
+    });
+</script>
+<style>
+.required {
+    color: #ff0000;
+    margin-right: 2px;
+}
+.perm-item:hover {
+    background-color: #f5f5f5;
+}
+</style>
+{% end %}

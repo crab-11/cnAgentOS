@@ -33,33 +33,32 @@
     </a>
 </script>
 
-<div id="user-form-dialog" style="display: none; padding: 20px;">
-    <form class="layui-form" id="user-form" lay-filter="user-form">
+<div id="user-form-dialog" style="display: none; padding: 0;">
+    <form class="layui-form" id="user-form" lay-filter="user-form" style="padding: 20px;">
         {% module xsrf_form_html() %}
         <input type="hidden" name="id" id="form-id">
         <div class="layui-form-item">
-            <label class="layui-form-label">用户名</label>
+            <label class="layui-form-label"><i class="required">*</i>用户名</label>
             <div class="layui-input-block">
-                <input type="text" name="username" id="form-username" placeholder="请输入用户名" class="layui-input" lay-verify="required">
+                <input type="text" name="username" id="form-username" placeholder="请输入用户名" class="layui-input" lay-verify="required" autocomplete="off">
             </div>
         </div>
         <div class="layui-form-item">
-            <label class="layui-form-label">密码</label>
+            <label class="layui-form-label"><i class="required">*</i>密码</label>
             <div class="layui-input-block">
-                <input type="password" name="password" id="form-password" placeholder="请输入密码（修改时留空表示不修改）" class="layui-input">
+                <input type="password" name="password" id="form-password" placeholder="请输入密码" class="layui-input" autocomplete="new-password">
             </div>
         </div>
         <div class="layui-form-item">
             <label class="layui-form-label">状态</label>
             <div class="layui-input-block">
-                <input type="radio" name="status" value="1" title="正常" checked>
-                <input type="radio" name="status" value="0" title="禁用">
+                <input type="switch" name="status" lay-skin="switch" lay-text="正常|禁用" value="1" checked>
             </div>
         </div>
-        <div class="layui-form-item">
-            <div class="layui-input-block">
-                <button class="layui-btn" lay-submit lay-filter="form-save">保存</button>
-                <button class="layui-btn layui-btn-primary" type="button" id="btn-cancel">取消</button>
+        <div class="layui-form-item" style="margin-bottom: 0; border-top: 1px solid #e6e6e6; padding-top: 15px; margin-top: 5px;">
+            <div class="layui-input-block" style="margin-left: 0;">
+                <button class="layui-btn layui-btn-normal" lay-submit lay-filter="form-save" style="width: 120px;">保存</button>
+                <button type="button" class="layui-btn layui-btn-primary" id="btn-cancel" style="width: 80px;">取消</button>
             </div>
         </div>
     </form>
@@ -135,12 +134,12 @@
         $('#btn-add').on('click', function(){
             $('#user-form')[0].reset();
             $('#form-id').val('');
-            $('#form-password').attr('placeholder', '请输入密码');
             form.render();
             layer.open({
                 type: 1,
-                title: '新增用户',
-                area: ['500px', '350px'],
+                title: '<i class="fas fa-user-plus" style="margin-right:8px;"></i>新增用户',
+                area: ['480px', '340px'],
+                skin: 'layui-layer-admin',
                 content: $('#user-form-dialog')
             });
         });
@@ -152,7 +151,7 @@
         form.on('submit(form-save)', function(data){
             var formData = data.field;
             var url = formData.id ? '/admin/api/user/update' : '/admin/api/user/add';
-            
+
             $.post(url, formData, function(res){
                 if(res.code === 0){
                     layer.msg(res.msg, {icon: 1});
@@ -175,22 +174,28 @@
                 form.render();
                 layer.open({
                     type: 1,
-                    title: '编辑用户',
-                    area: ['500px', '350px'],
+                    title: '<i class="fas fa-edit" style="margin-right:8px;"></i>编辑用户',
+                    area: ['480px', '340px'],
+                    skin: 'layui-layer-admin',
                     content: $('#user-form-dialog')
                 });
             } else if(obj.event === 'delete'){
-                layer.confirm('确定要删除用户 "' + data.username + '" 吗？', function(index){
-                    var xsrf = $('input[name="_xsrf"]').val();
-                    $.post('/admin/api/user/delete', {id: data.id, _xsrf: xsrf}, function(res){
-                        if(res.code === 0){
-                            layer.msg(res.msg, {icon: 1});
-                            table.reload('user-table');
-                        } else {
-                            layer.msg(res.msg, {icon: 2});
-                        }
-                    });
-                    layer.close(index);
+                layer.confirm('确定要删除用户 <strong>' + data.username + '</strong> 吗？<br><span style="color:#999;font-size:12px;">删除后无法恢复，请谨慎操作。</span>', {
+                    icon: 3,
+                    title: '<i class="fas fa-exclamation-triangle" style="margin-right:8px;color:#ff0000;"></i>删除确认',
+                    btn: ['确定删除', '取消'],
+                    btn1: function(index){
+                        var xsrf = $('input[name="_xsrf"]').val();
+                        $.post('/admin/api/user/delete', {id: data.id, _xsrf: xsrf}, function(res){
+                            if(res.code === 0){
+                                layer.msg(res.msg, {icon: 1});
+                                table.reload('user-table');
+                            } else {
+                                layer.msg(res.msg, {icon: 2});
+                            }
+                        });
+                        layer.close(index);
+                    }
                 });
             }
         });
@@ -204,17 +209,22 @@
                 layer.msg('请选择要删除的用户', {icon: 0});
                 return;
             }
-            layer.confirm('确定要删除选中的 ' + ids.length + ' 个用户吗？', function(index){
-                var xsrf = $('input[name="_xsrf"]').val();
-                $.post('/admin/api/user/batch-delete', {ids: JSON.stringify(ids), _xsrf: xsrf}, function(res){
-                    if(res.code === 0){
-                        layer.msg(res.msg, {icon: 1});
-                        table.reload('user-table');
-                    } else {
-                        layer.msg(res.msg, {icon: 2});
-                    }
-                });
-                layer.close(index);
+            layer.confirm('确定要删除选中的 <strong>' + ids.length + '</strong> 个用户吗？<br><span style="color:#999;font-size:12px;">删除后无法恢复，请谨慎操作。</span>', {
+                icon: 3,
+                title: '<i class="fas fa-exclamation-triangle" style="margin-right:8px;color:#ff0000;"></i>批量删除确认',
+                btn: ['确定删除', '取消'],
+                btn1: function(index){
+                    var xsrf = $('input[name="_xsrf"]').val();
+                    $.post('/admin/api/user/batch-delete', {ids: JSON.stringify(ids), _xsrf: xsrf}, function(res){
+                        if(res.code === 0){
+                            layer.msg(res.msg, {icon: 1});
+                            table.reload('user-table');
+                        } else {
+                            layer.msg(res.msg, {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                }
             });
         });
 
@@ -225,4 +235,10 @@
         });
     });
 </script>
+<style>
+.required {
+    color: #ff0000;
+    margin-right: 2px;
+}
+</style>
 {% end %}
