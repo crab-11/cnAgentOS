@@ -99,11 +99,14 @@ python main.py
 ### 智能瞭望与数据管理
 
 - 瞭望源管理
-- 支持配置采集地址、解析方式、关键词、启用状态
-- 支持手动执行采集任务
+- 支持配置 URL 模板、请求头、默认参数、运行参数定义、提取规则
+- 内置“百度新闻采集”预置模板
+- 支持多采集源动态选择与批量采集
+- 支持设置一次有效采集数量与采集页数
 - 采集任务日志记录抓取数量、入库数量、错误信息
 - 采集结果自动写入数据仓库
-- 数据仓库支持按来源、标题、摘要检索
+- 数据仓库支持按来源、关键字、标题、摘要检索
+- 数据仓库支持单条删除、批量删除
 - 采集地址默认拦截本地/内网地址
 
 ## 主要目录结构
@@ -185,13 +188,17 @@ cnAgentOS/
 | `/admin/api/permission/delete` | POST | 删除功能 |
 | `/admin/lookout/source` | GET | 瞭望源管理页面 |
 | `/admin/api/lookout/source/list` | GET | 瞭望源列表 |
+| `/admin/api/lookout/source/options` | GET | 启用中的采集源选项 |
 | `/admin/api/lookout/source/add` | POST | 新增瞭望源 |
 | `/admin/api/lookout/source/update` | POST | 修改瞭望源 |
 | `/admin/api/lookout/source/delete` | POST | 删除瞭望源 |
-| `/admin/api/lookout/source/collect` | POST | 手动执行采集 |
+| `/admin/lookout/collect` | GET | 瞭望采集工作台 |
+| `/admin/api/lookout/collect` | POST | 按关键字/页数/数量执行采集 |
 | `/admin/api/lookout/task/list` | GET | 采集任务日志 |
 | `/admin/data/warehouse` | GET | 数据仓库页面 |
 | `/admin/api/data/warehouse/list` | GET | 数据仓库列表 |
+| `/admin/api/data/warehouse/delete` | POST | 删除单条仓库记录 |
+| `/admin/api/data/warehouse/batch-delete` | POST | 批量删除仓库记录 |
 
 ## 数据库表
 
@@ -202,7 +209,7 @@ cnAgentOS/
 | `permissions` | 功能/菜单/权限定义 |
 | `role_permissions` | 角色与功能权限映射 |
 | `user_roles` | 用户与角色映射 |
-| `lookout_sources` | 瞭望源配置 |
+| `lookout_sources` | 瞭望源配置、请求头、参数规则、提取规则 |
 | `lookout_records` | 采集入库结果 |
 | `lookout_tasks` | 采集任务日志 |
 
@@ -243,7 +250,7 @@ cnAgentOS/
 | 功能管理 | 已完成 | 树形功能维护、权限树、角色映射 |
 | 后台首页 | 预留 | 后续模块完成后统一完善 |
 | 智能问数 | 待规划 | 后续核心业务 |
-| AI 智能瞭望 | 开发中 | 已支持瞭望源管理、手动采集、数据入库 |
+| AI 智能瞭望 | 开发中 | 已支持规则化源管理、独立采集工作台、数据入库 |
 
 ## 后续建议
 
@@ -251,7 +258,7 @@ cnAgentOS/
 - 增加接口级权限校验。
 - 完善注册功能或明确移除注册入口。
 - 增加用户操作日志。
-- 后续可继续补强自动调度采集、数据清洗规则、任务监控看板与向量库能力。
+- 后续可继续补强自动调度采集、AI深度采集、数据清洗规则、任务监控看板与向量库能力。
 
 ---
 

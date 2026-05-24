@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ static_url('libs/bootstrap-5.3.8-dist/css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ static_url('libs/layui-v2.13.6/layui/css/layui.css') }}">
     <link rel="stylesheet" href="{{ static_url('libs/fontawesome-free-5.15.4-web/css/all.min.css') }}">
     <style>
@@ -420,6 +421,7 @@
                         </a>
                         <ul class="submenu">
                             <li><a href="javascript:;" data-url="/admin/lookout/source">瞭望源管理</a></li>
+                            <li><a href="javascript:;" data-url="/admin/lookout/collect">瞭望采集</a></li>
                             <li><a href="javascript:;" data-url="/admin/lookout/source#tasks">采集任务</a></li>
                         </ul>
                     </li>
@@ -496,6 +498,7 @@
     <div id="xsrf-holder" style="display:none;">
         {% module xsrf_form_html() %}
     </div>
+    <script src="{{ static_url('libs/bootstrap-5.3.8-dist/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ static_url('libs/layui-v2.13.6/layui/layui.js') }}"></script>
     <script>
         layui.use(['form', 'layer', 'jquery'], function(){

@@ -172,7 +172,15 @@ def init_db():
                 name TEXT NOT NULL UNIQUE,
                 source_type TEXT NOT NULL DEFAULT 'website',
                 target_url TEXT NOT NULL,
+                request_method TEXT NOT NULL DEFAULT 'GET',
                 parser_type TEXT NOT NULL DEFAULT 'html',
+                request_headers TEXT,
+                default_params TEXT,
+                param_config TEXT,
+                extract_rules TEXT,
+                page_param TEXT NOT NULL DEFAULT 'pn',
+                page_step INTEGER NOT NULL DEFAULT 10,
+                keyword_param TEXT NOT NULL DEFAULT 'word',
                 keywords TEXT,
                 status INTEGER NOT NULL DEFAULT 1,
                 last_collected_at TEXT,
@@ -183,14 +191,36 @@ def init_db():
             """
         )
 
+        cursor = conn.execute("PRAGMA table_info(lookout_sources)")
+        lookout_source_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'request_method' not in lookout_source_columns:
+            conn.execute("ALTER TABLE lookout_sources ADD COLUMN request_method TEXT NOT NULL DEFAULT 'GET'")
+        if 'request_headers' not in lookout_source_columns:
+            conn.execute("ALTER TABLE lookout_sources ADD COLUMN request_headers TEXT")
+        if 'default_params' not in lookout_source_columns:
+            conn.execute("ALTER TABLE lookout_sources ADD COLUMN default_params TEXT")
+        if 'param_config' not in lookout_source_columns:
+            conn.execute("ALTER TABLE lookout_sources ADD COLUMN param_config TEXT")
+        if 'extract_rules' not in lookout_source_columns:
+            conn.execute("ALTER TABLE lookout_sources ADD COLUMN extract_rules TEXT")
+        if 'page_param' not in lookout_source_columns:
+            conn.execute("ALTER TABLE lookout_sources ADD COLUMN page_param TEXT NOT NULL DEFAULT 'pn'")
+        if 'page_step' not in lookout_source_columns:
+            conn.execute("ALTER TABLE lookout_sources ADD COLUMN page_step INTEGER NOT NULL DEFAULT 10")
+        if 'keyword_param' not in lookout_source_columns:
+            conn.execute("ALTER TABLE lookout_sources ADD COLUMN keyword_param TEXT NOT NULL DEFAULT 'word'")
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS lookout_records(
                 id integer PRIMARY KEY AUTOINCREMENT,
                 source_id INTEGER NOT NULL,
+                keyword TEXT,
                 title TEXT NOT NULL,
                 summary TEXT,
                 content_url TEXT,
+                source_page_url TEXT,
                 published_at TEXT,
                 raw_payload TEXT,
                 content_hash TEXT NOT NULL,
@@ -201,12 +231,23 @@ def init_db():
             """
         )
 
+        cursor = conn.execute("PRAGMA table_info(lookout_records)")
+        lookout_record_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'keyword' not in lookout_record_columns:
+            conn.execute("ALTER TABLE lookout_records ADD COLUMN keyword TEXT")
+        if 'source_page_url' not in lookout_record_columns:
+            conn.execute("ALTER TABLE lookout_records ADD COLUMN source_page_url TEXT")
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS lookout_tasks(
                 id integer PRIMARY KEY AUTOINCREMENT,
                 source_id INTEGER,
                 source_name TEXT NOT NULL,
+                keyword TEXT,
+                page_count INTEGER NOT NULL DEFAULT 1,
+                page_size INTEGER NOT NULL DEFAULT 20,
                 status TEXT NOT NULL DEFAULT 'pending',
                 fetched_count INTEGER NOT NULL DEFAULT 0,
                 stored_count INTEGER NOT NULL DEFAULT 0,
@@ -217,6 +258,16 @@ def init_db():
             )
             """
         )
+
+        cursor = conn.execute("PRAGMA table_info(lookout_tasks)")
+        lookout_task_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'keyword' not in lookout_task_columns:
+            conn.execute("ALTER TABLE lookout_tasks ADD COLUMN keyword TEXT")
+        if 'page_count' not in lookout_task_columns:
+            conn.execute("ALTER TABLE lookout_tasks ADD COLUMN page_count INTEGER NOT NULL DEFAULT 1")
+        if 'page_size' not in lookout_task_columns:
+            conn.execute("ALTER TABLE lookout_tasks ADD COLUMN page_size INTEGER NOT NULL DEFAULT 20")
 
         cursor = conn.execute("SELECT COUNT(*) FROM roles")
         if cursor.fetchone()[0] == 0:
@@ -318,7 +369,8 @@ def init_db():
 
         child_permissions = [
             ("lookout", "瞭望源管理", "瞭望源管理", "lookout_source", "menu", "fas fa-globe", "/admin/lookout/source", 201),
-            ("lookout", "采集任务", "采集任务", "lookout_task", "menu", "fas fa-tasks", "/admin/lookout/source#tasks", 202),
+            ("lookout", "瞭望采集", "瞭望采集", "lookout_collect", "menu", "fas fa-satellite-dish", "/admin/lookout/collect", 202),
+            ("lookout", "采集任务", "采集任务", "lookout_task", "menu", "fas fa-tasks", "/admin/lookout/source#tasks", 203),
             ("model", "模型服务", "模型服务", "model_config", "menu", "fas fa-cubes", "/admin/model", 301),
             ("model", "Token统计", "Token统计", "model_token", "menu", "fas fa-chart-line", "/admin/model#stats", 302),
             ("data", "数据仓库", "数据仓库", "data_warehouse", "menu", "fas fa-archive", "/admin/data/warehouse", 401),
@@ -388,3 +440,93 @@ def init_db():
             )
             """
         )
+
+        baidu_target_url = "https://www.baidu.com/s?rtt=1&bsst=1&cl=2&tn=news&rsv_dl=ns_pc&word={keyword}&pn={pn}"
+        baidu_headers = """{
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+  "Accept-Language": "zh-CN,zh;q=0.9",
+  "Referer": "https://news.baidu.com/",
+  "Upgrade-Insecure-Requests": "1",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+}"""
+        baidu_default_params = """{
+  "rtt": "1",
+  "bsst": "1",
+  "cl": "2",
+  "tn": "news",
+  "rsv_dl": "ns_pc"
+}"""
+        baidu_param_config = """[
+  {"name": "keyword", "label": "关键字", "required": true, "placeholder": "例如：四川农业大学"},
+  {"name": "pn", "label": "分页步进", "required": false, "default": 0, "description": "0=第一页，10=第二页，20=第三页"}
+]"""
+        baidu_extract_rules = """{
+  "engine": "baidu_news_search",
+  "link_attr_priority": ["data-landurl", "mu", "href"],
+  "summary_window": 420
+}"""
+
+        existing_baidu = conn.execute(
+            "SELECT id FROM lookout_sources WHERE name = ?",
+            ("百度新闻采集",)
+        ).fetchone()
+        if existing_baidu:
+            conn.execute(
+                """
+                UPDATE lookout_sources
+                SET source_type = ?,
+                    target_url = ?,
+                    request_method = ?,
+                    parser_type = ?,
+                    request_headers = ?,
+                    default_params = ?,
+                    param_config = ?,
+                    extract_rules = ?,
+                    page_param = ?,
+                    page_step = ?,
+                    keyword_param = ?,
+                    status = 1,
+                    update_at = datetime('now')
+                WHERE id = ?
+                """,
+                (
+                    "search",
+                    baidu_target_url,
+                    "GET",
+                    "baidu_news",
+                    baidu_headers,
+                    baidu_default_params,
+                    baidu_param_config,
+                    baidu_extract_rules,
+                    "pn",
+                    10,
+                    "word",
+                    existing_baidu[0]
+                )
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO lookout_sources(
+                    name, source_type, target_url, request_method, parser_type,
+                    request_headers, default_params, param_config, extract_rules,
+                    page_param, page_step, keyword_param, status, remark
+                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "百度新闻采集",
+                    "search",
+                    baidu_target_url,
+                    "GET",
+                    "baidu_news",
+                    baidu_headers,
+                    baidu_default_params,
+                    baidu_param_config,
+                    baidu_extract_rules,
+                    "pn",
+                    10,
+                    "word",
+                    1,
+                    "预置百度新闻采集模板，可在后台继续调整请求头、参数与提取规则。"
+                )
+            )

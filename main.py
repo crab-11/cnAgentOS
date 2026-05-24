@@ -56,14 +56,18 @@ from app.controllers.admin_model import (
 )
 from app.controllers.admin_lookout import (
     AdminLookoutSourceHandler,
+    AdminLookoutWorkbenchHandler,
     AdminLookoutSourceListHandler,
+    AdminLookoutSourceOptionsHandler,
     AdminLookoutSourceAddHandler,
     AdminLookoutSourceUpdateHandler,
     AdminLookoutSourceDeleteHandler,
     AdminLookoutCollectHandler,
     AdminLookoutTaskListHandler,
     AdminDataWarehouseHandler,
-    AdminDataWarehouseListHandler
+    AdminDataWarehouseListHandler,
+    AdminDataWarehouseDeleteHandler,
+    AdminDataWarehouseBatchDeleteHandler
 )
 
 # 引入数据库初始化方法
@@ -142,14 +146,19 @@ def make_app():
 
         # 智能瞭望与数据管理路由
         (r"/admin/lookout/source", AdminLookoutSourceHandler),
+        (r"/admin/lookout/collect", AdminLookoutWorkbenchHandler),
         (r"/admin/api/lookout/source/list", AdminLookoutSourceListHandler),
+        (r"/admin/api/lookout/source/options", AdminLookoutSourceOptionsHandler),
         (r"/admin/api/lookout/source/add", AdminLookoutSourceAddHandler),
         (r"/admin/api/lookout/source/update", AdminLookoutSourceUpdateHandler),
         (r"/admin/api/lookout/source/delete", AdminLookoutSourceDeleteHandler),
+        (r"/admin/api/lookout/collect", AdminLookoutCollectHandler),
         (r"/admin/api/lookout/source/collect", AdminLookoutCollectHandler),
         (r"/admin/api/lookout/task/list", AdminLookoutTaskListHandler),
         (r"/admin/data/warehouse", AdminDataWarehouseHandler),
         (r"/admin/api/data/warehouse/list", AdminDataWarehouseListHandler),
+        (r"/admin/api/data/warehouse/delete", AdminDataWarehouseDeleteHandler),
+        (r"/admin/api/data/warehouse/batch-delete", AdminDataWarehouseBatchDeleteHandler),
     ], **settings)
 
 

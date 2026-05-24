@@ -1,0 +1,604 @@
+{% extends "admin_base.html" %}
+
+{% block body %}
+<div class="lookout-shell">
+    <section class="lookout-hero">
+        <div class="hero-grid"></div>
+        <div class="hero-copy">
+            <div class="hero-kicker">Lookout Intelligence Console</div>
+            <h1>瞭望采集工作台</h1>
+            <p>输入关键字，选择采集源，控制页数与数量，快速执行多源采集。</p>
+        </div>
+
+        <div class="search-panel">
+            <div class="query-row">
+                <input type="text" id="keyword" class="hero-input" placeholder="输入采集关键字，例如：四川农业大学">
+                <button id="btn-run" class="hero-action">开始采集</button>
+            </div>
+
+            <div class="toggle-board">
+                <div class="toggle-title">采集源选择</div>
+                <div id="source-switches" class="switch-wrap"></div>
+            </div>
+
+            <div class="params-board">
+                <div class="params-title">运行参数</div>
+                <div class="params-grid">
+                    <label class="param-card">
+                        <span>一次有效采集数量</span>
+                        <input type="number" id="page-size" min="1" max="200" value="20">
+                    </label>
+                    <label class="param-card">
+                        <span>采集页数</span>
+                        <input type="number" id="page-count" min="1" max="20" value="2">
+                    </label>
+                </div>
+                <div class="param-tip">分页参数会按采集源配置中的分页步进自动推进，例如 `0 / 10 / 20`。</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="result-summary" id="summary-panel" style="display:none;">
+        <div class="metric-card">
+            <span class="metric-label">关键字</span>
+            <strong id="metric-keyword">-</strong>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">抓取总数</span>
+            <strong id="metric-fetched">0</strong>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">入库总数</span>
+            <strong id="metric-stored">0</strong>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">采集源</span>
+            <strong id="metric-sources">0</strong>
+        </div>
+    </section>
+
+    <section class="result-stage">
+        <div class="stage-head">
+            <h2>采集预览</h2>
+            <div class="stage-actions">
+                <button id="btn-go-source" class="ghost-btn">源管理</button>
+                <button id="btn-go-warehouse" class="ghost-btn">数据仓库</button>
+            </div>
+        </div>
+        <div id="source-feedback" class="feedback-list"></div>
+        <div id="preview-list" class="preview-grid">
+            <div class="empty-state">执行采集后，这里会展示结果预览。</div>
+        </div>
+    </section>
+</div>
+{% end %}
+
+{% block scripts %}
+<script>
+layui.use(['layer', 'jquery'], function(){
+    var layer = layui.layer;
+    var $ = layui.jquery;
+    var $menu = $('.sidebar-menu li:has(a:contains("智能瞭望"))');
+    $('.sidebar-menu li').removeClass('active');
+    $menu.addClass('active');
+    $menu.find('.submenu').show();
+    $menu.find('.submenu a:contains("瞭望采集")').parent().addClass('active');
+
+    var selectedSourceIds = [];
+    var sourceMap = {};
+
+    function escapeHtml(text) {
+        return $('<div>').text(text || '').html();
+    }
+
+    function getQueryParam(name) {
+        var params = new URLSearchParams(window.location.search);
+        return params.get(name);
+    }
+
+    function renderSources(sources) {
+        var presetSourceId = getQueryParam('source_id');
+        var html = '';
+        selectedSourceIds = [];
+        sources.forEach(function(source, index){
+            sourceMap[source.id] = source;
+            var active = presetSourceId ? String(source.id) === String(presetSourceId) : index === 0;
+            if(active) {
+                selectedSourceIds.push(source.id);
+            }
+            html += '<button type="button" class="source-switch ' + (active ? 'active' : '') + '" data-id="' + source.id + '">';
+            html += '<span class="switch-name">' + escapeHtml(source.name) + '</span>';
+            html += '<span class="switch-meta">' + escapeHtml(source.parser_type || '') + '</span>';
+            html += '</button>';
+        });
+        $('#source-switches').html(html || '<div class="empty-state small">暂无可用采集源</div>');
+    }
+
+    function loadSources() {
+        $.get('/admin/api/lookout/source/options', function(res){
+            if(res.code === 0) {
+                renderSources(res.data || []);
+            }
+        });
+    }
+
+    function collect() {
+        var keyword = $('#keyword').val().trim();
+        var pageSize = $('#page-size').val();
+        var pageCount = $('#page-count').val();
+
+        if(!selectedSourceIds.length) {
+            layer.msg('请至少选择一个采集源', {icon: 2});
+            return;
+        }
+        if(!keyword) {
+            layer.msg('请输入采集关键字', {icon: 2});
+            return;
+        }
+
+        var loading = layer.load(2, {shade: [0.15, '#07111f']});
+        $.post('/admin/api/lookout/collect', {
+            source_ids: JSON.stringify(selectedSourceIds),
+            keyword: keyword,
+            page_size: pageSize,
+            page_count: pageCount,
+            _xsrf: window.getXsrfToken()
+        }, function(res){
+            if(res.code === 0) {
+                renderResult(res.data);
+                layer.msg('采集完成', {icon: 1});
+            } else {
+                renderFailure(res.data && res.data.sources ? res.data.sources : []);
+                layer.msg(res.msg, {icon: 2, time: 3000});
+            }
+        }).fail(function(xhr){
+            layer.msg('采集请求失败：' + (xhr.responseText || xhr.status), {icon: 2, time: 3000});
+        }).always(function(){
+            layer.close(loading);
+        });
+    }
+
+    function renderFailure(sourceResults) {
+        $('#summary-panel').show();
+        $('#metric-keyword').text($('#keyword').val().trim() || '-');
+        $('#metric-fetched').text('0');
+        $('#metric-stored').text('0');
+        $('#metric-sources').text(sourceResults.length || selectedSourceIds.length);
+        var feedback = sourceResults.map(function(item){
+            return '<div class="feedback-card fail"><strong>' + escapeHtml(item.source_name || ('源#' + item.source_id)) + '</strong><span>' + escapeHtml(item.message || '采集失败') + '</span></div>';
+        }).join('');
+        $('#source-feedback').html(feedback || '<div class="feedback-card fail"><strong>采集失败</strong><span>本次未返回可用结果</span></div>');
+        $('#preview-list').html('<div class="empty-state">本次采集未获得可预览的数据。</div>');
+    }
+
+    function renderResult(data) {
+        $('#summary-panel').show();
+        $('#metric-keyword').text(data.keyword || '-');
+        $('#metric-fetched').text(data.total_fetched || 0);
+        $('#metric-stored').text(data.total_stored || 0);
+        $('#metric-sources').text((data.sources || []).length);
+
+        var feedback = (data.sources || []).map(function(item){
+            var cls = item.status === 'success' ? 'ok' : 'fail';
+            var text = item.status === 'success'
+                ? ('抓取 ' + item.fetched_count + ' 条，入库 ' + item.stored_count + ' 条')
+                : (item.message || '采集失败');
+            return '<div class="feedback-card ' + cls + '"><strong>' + escapeHtml(item.source_name || '') + '</strong><span>' + escapeHtml(text) + '</span></div>';
+        }).join('');
+        $('#source-feedback').html(feedback);
+
+        if(!(data.preview || []).length) {
+            $('#preview-list').html('<div class="empty-state">采集完成，但当前没有可展示的预览内容。</div>');
+            return;
+        }
+
+        var cards = data.preview.map(function(item){
+            var link = item.content_url
+                ? '<a href="' + escapeHtml(item.content_url) + '" target="_blank" class="preview-link">查看原文</a>'
+                : '<span class="preview-link muted">无原文链接</span>';
+            return '<article class="preview-card">' +
+                '<div class="preview-source">' + escapeHtml(item.source_name || '') + '</div>' +
+                '<h3>' + escapeHtml(item.title || '未命名内容') + '</h3>' +
+                '<p>' + escapeHtml(item.summary || '暂无摘要') + '</p>' +
+                '<div class="preview-foot"><span>' + escapeHtml(item.published_at || '时间未知') + '</span>' + link + '</div>' +
+            '</article>';
+        }).join('');
+        $('#preview-list').html(cards);
+    }
+
+    $(document).on('click', '.source-switch', function(){
+        var id = Number($(this).data('id'));
+        $(this).toggleClass('active');
+        if($(this).hasClass('active')) {
+            if(selectedSourceIds.indexOf(id) === -1) {
+                selectedSourceIds.push(id);
+            }
+        } else {
+            selectedSourceIds = selectedSourceIds.filter(function(item){ return item !== id; });
+        }
+    });
+
+    $('#btn-run').on('click', collect);
+    $('#keyword').on('keyup', function(e){ if(e.keyCode === 13){ collect(); } });
+    $('#btn-go-source').on('click', function(){ window.location.href = '/admin/lookout/source'; });
+    $('#btn-go-warehouse').on('click', function(){ window.location.href = '/admin/data/warehouse'; });
+
+    loadSources();
+});
+</script>
+<style>
+.lookout-shell {
+    min-height: calc(100vh - 140px);
+    color: #e7eef8;
+}
+
+.lookout-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top right, rgba(50, 160, 255, 0.32), transparent 28%),
+        radial-gradient(circle at left center, rgba(0, 212, 170, 0.2), transparent 24%),
+        linear-gradient(145deg, #07111f 0%, #10243f 52%, #142a21 100%);
+    padding: 34px;
+    box-shadow: 0 28px 64px rgba(8, 20, 45, 0.32);
+}
+
+.hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 26px 26px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent 90%);
+    pointer-events: none;
+}
+
+.hero-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin-bottom: 26px;
+}
+
+.hero-kicker {
+    display: inline-flex;
+    padding: 8px 14px;
+    border: 1px solid rgba(148, 205, 255, 0.25);
+    border-radius: 999px;
+    background: rgba(8, 20, 45, 0.34);
+    color: #8fd6ff;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.hero-copy h1 {
+    margin: 16px 0 10px;
+    font-size: 42px;
+    line-height: 1.12;
+    color: #f4f8ff;
+}
+
+.hero-copy p {
+    margin: 0;
+    max-width: 620px;
+    font-size: 16px;
+    color: rgba(231, 238, 248, 0.78);
+}
+
+.search-panel {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 18px;
+}
+
+.query-row {
+    display: grid;
+    grid-template-columns: 1fr 160px;
+    gap: 14px;
+}
+
+.hero-input {
+    width: 100%;
+    height: 58px;
+    border: 1px solid rgba(143, 214, 255, 0.25);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #f5fbff;
+    font-size: 17px;
+    padding: 0 20px;
+    outline: none;
+    backdrop-filter: blur(14px);
+}
+
+.hero-input::placeholder {
+    color: rgba(245, 251, 255, 0.44);
+}
+
+.hero-action {
+    height: 58px;
+    border: none;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #2be4ff 0%, #1c7cff 62%, #29d0ac 100%);
+    color: #04101e;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 18px 34px rgba(44, 175, 255, 0.28);
+}
+
+.toggle-board,
+.params-board,
+.result-summary,
+.result-stage {
+    margin-top: 18px;
+    border-radius: 22px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(14px);
+}
+
+.toggle-board,
+.params-board {
+    padding: 18px;
+}
+
+.toggle-title,
+.params-title {
+    margin-bottom: 14px;
+    font-size: 14px;
+    color: #9dc3ff;
+}
+
+.switch-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.source-switch {
+    min-width: 200px;
+    padding: 14px 16px;
+    border: 1px solid rgba(157, 195, 255, 0.15);
+    border-radius: 18px;
+    background: rgba(5, 16, 30, 0.36);
+    color: #d9e7ff;
+    text-align: left;
+    cursor: pointer;
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.source-switch.active {
+    border-color: rgba(43, 228, 255, 0.72);
+    box-shadow: 0 12px 24px rgba(27, 124, 255, 0.22);
+    transform: translateY(-1px);
+}
+
+.switch-name {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.switch-meta {
+    font-size: 12px;
+    color: rgba(217, 231, 255, 0.66);
+}
+
+.params-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.param-card {
+    display: block;
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(5, 16, 30, 0.36);
+}
+
+.param-card span {
+    display: block;
+    margin-bottom: 10px;
+    color: rgba(231, 238, 248, 0.72);
+    font-size: 13px;
+}
+
+.param-card input {
+    width: 100%;
+    height: 50px;
+    border: 1px solid rgba(143, 214, 255, 0.18);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    padding: 0 14px;
+    font-size: 16px;
+}
+
+.param-tip {
+    margin-top: 12px;
+    font-size: 12px;
+    color: rgba(231, 238, 248, 0.56);
+}
+
+.result-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    padding: 14px;
+}
+
+.metric-card {
+    padding: 16px 18px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(17, 28, 54, 0.78), rgba(9, 17, 33, 0.82));
+}
+
+.metric-label {
+    display: block;
+    color: rgba(157, 195, 255, 0.72);
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.metric-card strong {
+    font-size: 26px;
+    color: #ffffff;
+}
+
+.result-stage {
+    padding: 20px;
+}
+
+.stage-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.stage-head h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 20px;
+}
+
+.stage-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.ghost-btn {
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: #fff;
+    color: #0f172a;
+    cursor: pointer;
+}
+
+.feedback-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.feedback-card {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid #e8edf7;
+}
+
+.feedback-card strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #0f172a;
+}
+
+.feedback-card span {
+    color: #516076;
+    font-size: 13px;
+}
+
+.feedback-card.ok {
+    box-shadow: inset 0 0 0 1px rgba(17, 185, 129, 0.18);
+}
+
+.feedback-card.fail {
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.14);
+}
+
+.preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.preview-card {
+    padding: 18px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    border: 1px solid #e8edf7;
+    min-height: 220px;
+}
+
+.preview-source {
+    margin-bottom: 10px;
+    color: #0a84ff;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.preview-card h3 {
+    margin: 0 0 12px;
+    font-size: 18px;
+    line-height: 1.4;
+    color: #0f172a;
+}
+
+.preview-card p {
+    margin: 0;
+    color: #516076;
+    line-height: 1.7;
+    font-size: 14px;
+}
+
+.preview-foot {
+    margin-top: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: #7a8798;
+}
+
+.preview-link {
+    color: #0a84ff;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.preview-link.muted {
+    color: #95a1af;
+}
+
+.empty-state {
+    padding: 48px 20px;
+    text-align: center;
+    color: #6a7790;
+    border: 1px dashed #d8e1ee;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.78);
+}
+
+.empty-state.small {
+    width: 100%;
+    padding: 16px;
+}
+
+@media (max-width: 960px) {
+    .query-row {
+        grid-template-columns: 1fr;
+    }
+
+    .params-grid,
+    .result-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .stage-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+</style>
+{% end %}

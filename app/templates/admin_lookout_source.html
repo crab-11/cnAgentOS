@@ -16,13 +16,14 @@
         <div class="layui-inline">
             <button class="layui-btn" id="btn-search"><i class="fas fa-search"></i> 搜索</button>
             <button class="layui-btn layui-btn-normal" id="btn-add"><i class="fas fa-plus"></i> 新增瞭望源</button>
-            <button class="layui-btn layui-btn-warm" id="btn-warehouse"><i class="fas fa-archive"></i> 数据仓库</button>
+            <button class="layui-btn layui-btn-warm" id="btn-workbench"><i class="fas fa-satellite-dish"></i> 打开采集台</button>
+            <button class="layui-btn layui-btn-primary" id="btn-warehouse"><i class="fas fa-archive"></i> 数据仓库</button>
         </div>
     </div>
 </div>
 
 <div class="layui-card">
-    <div class="layui-card-header">瞭望源配置</div>
+    <div class="layui-card-header">规则化采集源配置</div>
     <div class="layui-card-body" style="padding:0;">
         <div class="table-container">
             <table id="source-table" lay-filter="source-table"></table>
@@ -40,7 +41,7 @@
 </div>
 
 <script type="text/html" id="source-toolbar">
-    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="collect"><i class="fas fa-play"></i> 采集</a>
+    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="collect"><i class="fas fa-play"></i> 采集台</a>
     <a class="layui-btn layui-btn-xs" lay-event="edit"><i class="fas fa-edit"></i> 编辑</a>
     <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete"><i class="fas fa-trash"></i> 删除</a>
 </script>
@@ -49,61 +50,137 @@
     <form class="layui-form" id="source-form" lay-filter="source-form" style="padding:20px;">
         {% module xsrf_form_html() %}
         <input type="hidden" name="id" id="form-id">
-        <div class="layui-form-item">
-            <label class="layui-form-label">名称</label>
-            <div class="layui-input-block">
-                <input type="text" name="name" id="form-name" lay-verify="required" autocomplete="off" placeholder="如：36氪热点 RSS" class="layui-input">
+        <div style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">名称</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="name" id="form-name" lay-verify="required" autocomplete="off" placeholder="如：百度新闻采集" class="layui-input">
+                    </div>
+                </div>
+            </div>
+            <div style="width:160px;">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">状态</label>
+                    <div class="layui-input-block">
+                        <select name="status" id="form-status">
+                            <option value="1">启用</option>
+                            <option value="0">禁用</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">来源类型</label>
+                    <div class="layui-input-block">
+                        <select name="source_type" id="form-source-type">
+                            <option value="search">搜索引擎</option>
+                            <option value="website">网站</option>
+                            <option value="rss">RSS</option>
+                            <option value="api">API</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div style="width:160px;">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">方法</label>
+                    <div class="layui-input-block">
+                        <select name="request_method" id="form-request-method">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div style="width:180px;">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">解析方式</label>
+                    <div class="layui-input-block">
+                        <select name="parser_type" id="form-parser-type">
+                            <option value="baidu_news">百度新闻</option>
+                            <option value="html">HTML页面</option>
+                            <option value="rss">RSS/XML</option>
+                            <option value="json">JSON接口</option>
+                        </select>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="layui-form-item">
-            <label class="layui-form-label">来源类型</label>
+            <label class="layui-form-label">URL模板</label>
             <div class="layui-input-block">
-                <select name="source_type" id="form-source-type">
-                    <option value="website">网站</option>
-                    <option value="rss">RSS</option>
-                    <option value="api">API</option>
-                </select>
+                <input type="text" name="target_url" id="form-target-url" lay-verify="required" autocomplete="off" placeholder="支持占位符，如 {keyword} / {pn}" class="layui-input">
+            </div>
+        </div>
+        <div style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">关键字参数</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="keyword_param" id="form-keyword-param" autocomplete="off" placeholder="如：word" class="layui-input">
+                    </div>
+                </div>
+            </div>
+            <div style="width:180px;">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">分页参数</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="page_param" id="form-page-param" autocomplete="off" placeholder="如：pn" class="layui-input">
+                    </div>
+                </div>
+            </div>
+            <div style="width:180px;">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">分页步进</label>
+                    <div class="layui-input-block">
+                        <input type="number" name="page_step" id="form-page-step" value="10" autocomplete="off" class="layui-input">
+                    </div>
+                </div>
             </div>
         </div>
         <div class="layui-form-item">
-            <label class="layui-form-label">采集地址</label>
-            <div class="layui-input-block">
-                <input type="text" name="target_url" id="form-target-url" lay-verify="required" autocomplete="off" placeholder="http:// 或 https:// 地址" class="layui-input">
-            </div>
-        </div>
-        <div class="layui-form-item">
-            <label class="layui-form-label">解析方式</label>
-            <div class="layui-input-block">
-                <select name="parser_type" id="form-parser-type">
-                    <option value="html">HTML页面</option>
-                    <option value="rss">RSS/XML</option>
-                    <option value="json">JSON接口</option>
-                </select>
-            </div>
-        </div>
-        <div class="layui-form-item">
-            <label class="layui-form-label">关键词</label>
+            <label class="layui-form-label">筛选关键词</label>
             <div class="layui-input-block">
                 <input type="text" name="keywords" id="form-keywords" autocomplete="off" placeholder="多个关键词用逗号分隔，可选" class="layui-input">
             </div>
         </div>
         <div class="layui-form-item">
-            <label class="layui-form-label">状态</label>
+            <label class="layui-form-label">默认参数</label>
             <div class="layui-input-block">
-                <select name="status" id="form-status">
-                    <option value="1">启用</option>
-                    <option value="0">禁用</option>
-                </select>
+                <textarea name="default_params" id="form-default-params" placeholder='JSON对象，如 {"tn":"news"}' class="layui-textarea code-box"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">请求头</label>
+            <div class="layui-input-block">
+                <textarea name="request_headers" id="form-request-headers" placeholder='JSON对象，如 {"User-Agent":"..."}' class="layui-textarea code-box"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">参数定义</label>
+            <div class="layui-input-block">
+                <textarea name="param_config" id="form-param-config" placeholder='JSON数组，定义运行时参数' class="layui-textarea code-box"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">提取规则</label>
+            <div class="layui-input-block">
+                <textarea name="extract_rules" id="form-extract-rules" placeholder='JSON对象，定义解析引擎与扩展规则' class="layui-textarea code-box"></textarea>
             </div>
         </div>
         <div class="layui-form-item">
             <label class="layui-form-label">备注</label>
             <div class="layui-input-block">
-                <textarea name="remark" id="form-remark" placeholder="可填写数据来源说明或采集目的" class="layui-textarea"></textarea>
+                <textarea name="remark" id="form-remark" placeholder="可填写来源说明、反爬备注、使用限制" class="layui-textarea"></textarea>
             </div>
         </div>
         <div class="layui-form-item" style="margin-bottom:0;">
-            <div class="layui-input-block" style="margin-left:0;">
+            <div class="layui-input-block" style="margin-left:0; display:flex; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="layui-btn layui-btn-warm" id="btn-fill-baidu">填充百度新闻模板</button>
                 <button class="layui-btn layui-btn-normal" lay-submit lay-filter="form-save">保存</button>
                 <button type="button" class="layui-btn layui-btn-primary" id="btn-cancel">取消</button>
             </div>
@@ -119,6 +196,41 @@ layui.use(['table', 'form', 'layer', 'jquery'], function(){
     var form = layui.form;
     var layer = layui.layer;
     var $ = layui.jquery;
+
+    var baiduPreset = {
+        name: '百度新闻采集',
+        source_type: 'search',
+        request_method: 'GET',
+        parser_type: 'baidu_news',
+        target_url: 'https://www.baidu.com/s?rtt=1&bsst=1&cl=2&tn=news&rsv_dl=ns_pc&word={keyword}&pn={pn}',
+        keyword_param: 'word',
+        page_param: 'pn',
+        page_step: 10,
+        default_params: JSON.stringify({
+            rtt: '1',
+            bsst: '1',
+            cl: '2',
+            tn: 'news',
+            rsv_dl: 'ns_pc'
+        }, null, 2),
+        request_headers: JSON.stringify({
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'zh-CN,zh;q=0.9',
+            Referer: 'https://news.baidu.com/',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+        }, null, 2),
+        param_config: JSON.stringify([
+            {name: 'keyword', label: '关键字', required: true, placeholder: '例如：四川农业大学'},
+            {name: 'pn', label: '分页步进', required: false, default: 0, description: '0=第一页，10=第二页，20=第三页'}
+        ], null, 2),
+        extract_rules: JSON.stringify({
+            engine: 'baidu_news_search',
+            link_attr_priority: ['data-landurl', 'mu', 'href'],
+            summary_window: 420
+        }, null, 2),
+        remark: '百度新闻采集模板，支持关键字与分页步进动态参数。'
+    };
 
     var $menu = $('.sidebar-menu li:has(a:contains("智能瞭望"))');
     $('.sidebar-menu li').removeClass('active');
@@ -140,6 +252,23 @@ layui.use(['table', 'form', 'layer', 'jquery'], function(){
         table.reload('task-table', {page: {curr: 1}});
     }
 
+    function fillPreset() {
+        $('#form-name').val(baiduPreset.name);
+        $('#form-source-type').val(baiduPreset.source_type);
+        $('#form-request-method').val(baiduPreset.request_method);
+        $('#form-parser-type').val(baiduPreset.parser_type);
+        $('#form-target-url').val(baiduPreset.target_url);
+        $('#form-keyword-param').val(baiduPreset.keyword_param);
+        $('#form-page-param').val(baiduPreset.page_param);
+        $('#form-page-step').val(baiduPreset.page_step);
+        $('#form-default-params').val(baiduPreset.default_params);
+        $('#form-request-headers').val(baiduPreset.request_headers);
+        $('#form-param-config').val(baiduPreset.param_config);
+        $('#form-extract-rules').val(baiduPreset.extract_rules);
+        $('#form-remark').val(baiduPreset.remark);
+        form.render('select');
+    }
+
     table.render({
         elem: '#source-table',
         id: 'source-table',
@@ -148,13 +277,14 @@ layui.use(['table', 'form', 'layer', 'jquery'], function(){
         cols: [[
             {field: 'name', title: '瞭望源', minWidth: 180},
             {field: 'source_type', title: '来源类型', width: 100},
-            {field: 'parser_type', title: '解析方式', width: 100},
-            {field: 'target_url', title: '采集地址', minWidth: 260},
-            {field: 'keywords', title: '关键词', width: 140, templet: function(d){ return d.keywords || '-'; }},
-            {field: 'record_count', title: '入库数', width: 90},
+            {field: 'request_method', title: '方法', width: 80},
+            {field: 'parser_type', title: '解析方式', width: 120},
+            {field: 'target_url', title: 'URL模板', minWidth: 280},
+            {field: 'page_step', title: '步进', width: 70},
+            {field: 'record_count', title: '入库数', width: 80},
             {field: 'last_collected_at', title: '最近采集', width: 170, templet: function(d){ return d.last_collected_at || '-'; }},
             {field: 'status', title: '状态', width: 80, templet: function(d){ return d.status === 1 ? '<span style="color:#16b777;">启用</span>' : '<span style="color:#ff5722;">禁用</span>'; }},
-            {title: '操作', width: 200, toolbar: '#source-toolbar', fixed: 'right'}
+            {title: '操作', width: 210, toolbar: '#source-toolbar', fixed: 'right'}
         ]],
         parseData: function(res){
             return {code: res.code, msg: res.msg, count: res.data.total, data: res.data.list};
@@ -169,16 +299,18 @@ layui.use(['table', 'form', 'layer', 'jquery'], function(){
         cols: [[
             {field: 'id', title: '任务ID', width: 90},
             {field: 'source_name', title: '瞭望源', minWidth: 160},
+            {field: 'keyword', title: '关键字', width: 140, templet: function(d){ return d.keyword || '-'; }},
+            {field: 'page_count', title: '页数', width: 70},
+            {field: 'page_size', title: '数量', width: 70},
             {field: 'status', title: '状态', width: 90, templet: function(d){
                 if(d.status === 'success') return '<span style="color:#16b777;">成功</span>';
                 if(d.status === 'failed') return '<span style="color:#ff5722;">失败</span>';
                 return '<span style="color:#ffb800;">执行中</span>';
             }},
-            {field: 'fetched_count', title: '抓取数', width: 90},
-            {field: 'stored_count', title: '入库数', width: 90},
+            {field: 'fetched_count', title: '抓取数', width: 80},
+            {field: 'stored_count', title: '入库数', width: 80},
             {field: 'error_message', title: '错误信息', minWidth: 200, templet: function(d){ return d.error_message || '-'; }},
-            {field: 'create_at', title: '开始时间', width: 170},
-            {field: 'finish_at', title: '结束时间', width: 170, templet: function(d){ return d.finish_at || '-'; }}
+            {field: 'create_at', title: '开始时间', width: 170}
         ]],
         parseData: function(res){
             return {code: res.code, msg: res.msg, count: res.data.total, data: res.data.list};
@@ -186,20 +318,23 @@ layui.use(['table', 'form', 'layer', 'jquery'], function(){
     });
 
     $('#btn-search').on('click', reloadSourceTable);
+    $('#btn-workbench').on('click', function(){ window.location.href = '/admin/lookout/collect'; });
     $('#btn-warehouse').on('click', function(){ window.location.href = '/admin/data/warehouse'; });
     $(document).on('keyup', '#search-keyword', function(e){ if(e.keyCode === 13){ reloadSourceTable(); } });
 
     $('#btn-add').on('click', function(){
         $('#source-form')[0].reset();
         $('#form-id').val('');
-        form.render('select');
+        fillPreset();
         layer.open({
             type: 1,
             title: '新增瞭望源',
-            area: ['560px', '560px'],
+            area: ['980px', '90vh'],
             content: $('#source-form-dialog')
         });
     });
+
+    $('#btn-fill-baidu').on('click', fillPreset);
 
     table.on('tool(source-table)', function(obj){
         var data = obj.data;
@@ -207,16 +342,24 @@ layui.use(['table', 'form', 'layer', 'jquery'], function(){
             $('#form-id').val(data.id);
             $('#form-name').val(data.name);
             $('#form-source-type').val(data.source_type);
-            $('#form-target-url').val(data.target_url);
+            $('#form-request-method').val(data.request_method || 'GET');
             $('#form-parser-type').val(data.parser_type);
+            $('#form-target-url').val(data.target_url);
+            $('#form-keyword-param').val(data.keyword_param || 'word');
+            $('#form-page-param').val(data.page_param || 'pn');
+            $('#form-page-step').val(data.page_step || 10);
             $('#form-keywords').val(data.keywords || '');
             $('#form-status').val(String(data.status));
+            $('#form-default-params').val(data.default_params || '');
+            $('#form-request-headers').val(data.request_headers || '');
+            $('#form-param-config').val(data.param_config || '');
+            $('#form-extract-rules').val(data.extract_rules || '');
             $('#form-remark').val(data.remark || '');
             form.render('select');
             layer.open({
                 type: 1,
                 title: '编辑瞭望源',
-                area: ['560px', '560px'],
+                area: ['980px', '90vh'],
                 content: $('#source-form-dialog')
             });
         } else if(obj.event === 'delete'){
@@ -231,29 +374,14 @@ layui.use(['table', 'form', 'layer', 'jquery'], function(){
                 layer.close(index);
             });
         } else if(obj.event === 'collect'){
-            var loading = layer.load(2, {shade: [0.12, '#fff']});
-            $.post('/admin/api/lookout/source/collect', {id: data.id, _xsrf: window.getXsrfToken()}, function(res){
-                if(res.code === 0){
-                    var summary = '抓取 ' + res.data.fetched_count + ' 条，入库 ' + res.data.stored_count + ' 条';
-                    layer.msg(summary, {icon: 1, time: 2500});
-                    reloadSourceTable();
-                    reloadTaskTable();
-                } else {
-                    layer.msg(res.msg, {icon: 2, time: 3000});
-                    reloadTaskTable();
-                }
-            }).fail(function(xhr){
-                layer.msg('请求失败：' + (xhr.responseText || xhr.status), {icon: 2});
-            }).always(function(){
-                layer.close(loading);
-            });
+            window.location.href = '/admin/lookout/collect?source_id=' + data.id;
         }
     });
 
     form.on('submit(form-save)', function(data){
         var url = data.field.id ? '/admin/api/lookout/source/update' : '/admin/api/lookout/source/add';
         $.post(url, data.field, function(res){
-            layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2});
+            layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2, time: res.code === 0 ? 1600 : 2600});
             if(res.code === 0){
                 layer.closeAll();
                 reloadSourceTable();
@@ -268,6 +396,17 @@ layui.use(['table', 'form', 'layer', 'jquery'], function(){
 <style>
 .layui-table-cell .layui-btn {
     margin-right: 4px;
+}
+
+.code-box {
+    min-height: 108px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.layui-layer-page .layui-layer-content {
+    overflow-y: auto;
 }
 </style>
 {% end %}
